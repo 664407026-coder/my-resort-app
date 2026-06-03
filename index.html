@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="Resort Cloud">
-    <title>ระบบจัดการรีสอร์ท Pro V2</title>
+    <title>ระบบจัดการไอธารารีสอร์ท</title>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -49,6 +49,7 @@
         .history-item:last-child { border-bottom: none; }
         .text-green { color: var(--success); font-weight: bold;}
         .text-red { color: var(--danger); font-weight: bold;}
+        .customer-note { display: block; font-size: 12px; color: #7f8c8d; margin-top: 2px; }
 
         /* ฟอร์ม */
         .expense-form { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -64,10 +65,16 @@
         .btn-cancel { background: #95a5a6; color: white; border: none; }
         .btn-confirm { background: var(--success); color: white; border: none; }
         .btn-checkout { background: var(--primary); color: white; border: none; width: 100%; margin-top: 20px; padding: 12px; border-radius: 8px; font-weight: bold;}
-        .logout-btn { background: #7f8c8d; color: white; border: none; padding: 8px 15px; float: right; cursor: pointer; border-radius: 5px; margin-bottom: 15px;}
         
-        /* แถบเลือกเดือน */
+        /* Top Bar Buttons */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .logout-btn { background: #7f8c8d; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; }
+        .clear-all-btn { background: var(--danger); color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; font-weight: bold;}
+        
         .account-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--gray); padding-bottom: 10px; }
+        
+        /* Modal Input Label */
+        .modal-label { display: block; text-align: left; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: var(--primary); }
     </style>
 </head>
 <body>
@@ -81,8 +88,13 @@
     </div>
 
     <div id="appContainer">
-        <button class="logout-btn" id="btnLogout">ออกจากระบบ</button>
-        <h1 style="clear: both; text-align: left;">สถานะห้องพัก</h1>
+        <div class="top-bar">
+            <h1 style="margin: 0; text-align: left; font-size: 24px;">สถานะห้องพัก</h1>
+            <div>
+                <button class="clear-all-btn" id="btnClearAll">เคลียร์ทุกห้อง</button>
+                <button class="logout-btn" id="btnLogout">ออก</button>
+            </div>
+        </div>
 
         <div class="room-grid" id="roomContainer"></div>
 
@@ -95,7 +107,7 @@
             <div class="stats">
                 <div class="stat-box">รายได้<span id="totalIncome" class="text-green">0</span></div>
                 <div class="stat-box">รายจ่าย<span id="totalExpense" class="text-red">0</span></div>
-                <div class="stat-box">ผลประกอบการ<span id="netProfit">0</span></div>
+                <div class="stat-box">ผลประกอบการ(กำไร)<span id="netProfit">0</span></div>
             </div>
             
             <h3>บันทึกค่าใช้จ่ายอื่นๆ</h3>
@@ -106,6 +118,7 @@
                     <option value="ค่าไฟ">ค่าไฟ</option>
                     <option value="ค่าอุปกรณ์">ค่าอุปกรณ์</option>
                     <option value="ค่าซ่อมบำรุง">ค่าซ่อมบำรุง</option>
+                    <option value="ค่าแรง/ค่าจ้าง">ค่าจ้าง</option>
                 </select>
                 <input type="number" id="expenseAmount" placeholder="จำนวนเงิน (บาท)">
             </div>
@@ -119,16 +132,25 @@
     <div class="modal" id="checkInModal">
         <div class="modal-content">
             <h3 id="modalRoomName">เช็คอินห้อง</h3>
-            <p id="modalRoomTypeDisplay" style="color: gray; margin-top: -10px;"></p>
+            <p id="modalRoomTypeDisplay" style="color: gray; margin-top: -10px; margin-bottom: 20px;"></p>
             
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label>ประเภทการพัก:</label>
-                <select id="stayType" style="width: 100%; margin-top: 5px;">
+            <div style="margin-bottom: 15px;">
+                <label class="modal-label">ข้อมูลลูกค้า:</label>
+                <input type="text" id="customerInfo" placeholder="เบอร์โทรศัพท์ / เลขบัตร ปชช." style="width: 100%;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label class="modal-label">ประเภทการพัก:</label>
+                <select id="stayType" style="width: 100%;">
                     <option value="overnight">ค้างคืน</option>
                     <option value="short">ชั่วคราว</option>
                 </select>
             </div>
-            <p id="pricePreview" style="font-weight: bold; font-size: 18px; color: var(--primary);"></p>
+            
+            <div style="margin-bottom: 15px;">
+                <label class="modal-label">ราคา (ระบุเอง):</label>
+                <input type="number" id="customPrice" style="width: 100%; font-weight: bold; color: var(--primary);">
+            </div>
 
             <div class="btn-group">
                 <button class="btn-cancel" id="btnCancelCheckIn">ยกเลิก</button>
@@ -167,7 +189,7 @@
 
         const pricing = {
             vip: { overnight: 500, short: 300, label: "VIP" },
-            standard: { overnight: 400, short: 250, label: "ธรรมดา" },
+            standard: { overnight: 400, short: 250, label: "เเอร์" },
             fan: { overnight: 300, short: 200, label: "พัดลม" }
         };
 
@@ -186,7 +208,6 @@
 
         let currentSelectedRoomId = null;
 
-        // ฟังก์ชันสร้างตัวเลือกเด็ดย้อนหลัง 12 เดือนอัตโนมัติ
         function generateMonthOptions() {
             const selector = document.getElementById('monthSelector');
             selector.innerHTML = '';
@@ -209,7 +230,7 @@
             if (user) {
                 document.getElementById('authContainer').style.display = 'none';
                 document.getElementById('appContainer').style.display = 'block';
-                generateMonthOptions(); // สร้างเมนูเดือนย้อนหลังครั้งแรก
+                generateMonthOptions();
                 startRealtimeSync();
             } else {
                 document.getElementById('authContainer').style.display = 'block';
@@ -262,11 +283,12 @@
             });
         }
 
+        // อัปเดตราคาในช่องกรอกเมื่อเปลี่ยนประเภทการเข้าพัก
         document.getElementById('stayType').addEventListener('change', (e) => {
             if(!currentSelectedRoomId) return;
             const room = appData.rooms.find(r => r.id === currentSelectedRoomId);
-            const price = pricing[room.type][e.target.value];
-            document.getElementById('pricePreview').innerText = `ราคา: ${price} บาท`;
+            const defaultPrice = pricing[room.type][e.target.value];
+            document.getElementById('customPrice').value = defaultPrice;
         });
 
         function handleRoomClick(room) {
@@ -274,10 +296,15 @@
             if (room.status === 'available') {
                 const typeLabel = pricing[room.type].label;
                 const defaultPrice = pricing[room.type]['overnight'];
+                
                 document.getElementById('modalRoomName').innerText = `เช็คอิน: ${room.name}`;
                 document.getElementById('modalRoomTypeDisplay').innerText = `ประเภท: ห้อง${typeLabel}`;
+                
+                // เซ็ตค่าเริ่มต้นในฟอร์ม
+                document.getElementById('customerInfo').value = '';
                 document.getElementById('stayType').value = 'overnight';
-                document.getElementById('pricePreview').innerText = `ราคา: ${defaultPrice} บาท`;
+                document.getElementById('customPrice').value = defaultPrice;
+                
                 document.getElementById('checkInModal').style.display = 'flex';
             } else {
                 document.getElementById('checkoutRoomName').innerText = room.name;
@@ -293,20 +320,26 @@
         document.getElementById('btnCancelCheckIn').addEventListener('click', closeModal);
         document.getElementById('btnCancelCheckOut').addEventListener('click', closeModal);
 
+        // บันทึกเช็คอินแบบใหม่ (ใช้ราคาที่กรอก + เก็บข้อมูลลูกค้า)
         document.getElementById('btnConfirmCheckIn').addEventListener('click', () => {
             const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
             const room = appData.rooms[roomIndex];
             const sType = document.getElementById('stayType').value;
-            const price = pricing[room.type][sType];
-            const now = new Date();
+            const finalPrice = Number(document.getElementById('customPrice').value);
+            let custInfo = document.getElementById('customerInfo').value.trim();
+            
+            if (!custInfo) custInfo = "ไม่ระบุ"; // ถ้าไม่กรอกให้เป็นค่านี้
+            if (finalPrice < 0) { alert('ราคาไม่สามารถติดลบได้'); return; }
 
+            const now = new Date();
             appData.rooms[roomIndex].status = 'occupied';
             appData.transactions.push({
                 id: now.getTime(),
                 type: 'income',
-                amount: price,
+                amount: finalPrice,
                 date: now.toISOString(),
-                desc: `ค่าห้อง ${room.name} (${sType === 'overnight' ? 'ค้างคืน' : 'ชั่วคราว'})`
+                desc: `ค่าห้อง ${room.name} (${sType === 'overnight' ? 'ค้างคืน' : 'ชั่วคราว'})`,
+                customer: custInfo
             });
 
             saveDataToCloud();
@@ -318,6 +351,17 @@
             appData.rooms[roomIndex].status = 'available';
             saveDataToCloud();
             closeModal();
+        });
+
+        // ฟังก์ชัน เคลียร์ทุกห้อง
+        document.getElementById('btnClearAll').addEventListener('click', () => {
+            const isConfirm = confirm('คุณแน่ใจหรือไม่ว่าต้องการ "เคลียร์สถานะผู้เข้าพัก" ทุกห้องให้กลับมาว่างพร้อมกัน?');
+            if (isConfirm) {
+                appData.rooms.forEach(room => {
+                    room.status = 'available';
+                });
+                saveDataToCloud();
+            }
         });
 
         document.getElementById('btnSaveExpense').addEventListener('click', () => {
@@ -344,7 +388,6 @@
             saveDataToCloud();
         });
 
-        // คำนวณตามเดือนที่ผู้ใช้เลือกใน Dropdown
         function updateDashboard() {
             const selector = document.getElementById('monthSelector');
             if(!selector.value) return;
@@ -359,7 +402,6 @@
             const historyContainer = document.getElementById('transactionHistory');
             historyContainer.innerHTML = '';
 
-            // กรองข้อมูลเฉพาะ เดือน และ ปี ที่ถูกเลือก
             const filteredTx = appData.transactions.filter(tx => {
                 const txDate = new Date(tx.date);
                 return txDate.getMonth() === selectedMonth && txDate.getFullYear() === selectedYear;
@@ -374,12 +416,31 @@
             filteredTx.forEach(tx => {
                 const dateObj = new Date(tx.date);
                 const timeStr = `${dateObj.getDate()}/${dateObj.getMonth()+1} ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} น.`;
+                
+                // แสดงข้อมูลลูกค้าในประวัติด้วย (ถ้ามี)
+                const customerDisplay = tx.customer ? `<span class="customer-note">ลูกค้า: ${tx.customer}</span>` : '';
+
                 if(tx.type === 'income') {
                     monthlyIncome += tx.amount;
-                    historyContainer.innerHTML += `<div class="history-item"><div><span>${tx.desc}</span><br><small style="color:gray;">${timeStr}</small></div><span class="text-green">+${tx.amount}</span></div>`;
+                    historyContainer.innerHTML += `
+                        <div class="history-item">
+                            <div>
+                                <span>${tx.desc}</span><br>
+                                <small style="color:gray;">${timeStr}</small>
+                                ${customerDisplay}
+                            </div>
+                            <span class="text-green">+${tx.amount}</span>
+                        </div>`;
                 } else {
                     monthlyExpense += tx.amount;
-                    historyContainer.innerHTML += `<div class="history-item"><div><span>${tx.desc}</span><br><small style="color:gray;">${timeStr}</small></div><span class="text-red">-${tx.amount}</span></div>`;
+                    historyContainer.innerHTML += `
+                        <div class="history-item">
+                            <div>
+                                <span>${tx.desc}</span><br>
+                                <small style="color:gray;">${timeStr}</small>
+                            </div>
+                            <span class="text-red">-${tx.amount}</span>
+                        </div>`;
                 }
             });
 
