@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="Resort Cloud">
-    <title>ระบบจัดการรีสอร์ท Pro</title>
+    <title>ระบบจัดการรีสอร์ท Pro V2</title>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -41,7 +41,7 @@
         .dashboard { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; margin-bottom: 20px; }
         .stat-box { padding: 15px; border-radius: 8px; background: var(--gray); font-size: 16px; font-weight: bold; }
-        .stat-box span { display: block; font-size: 22px; margin-top: 5px; }
+        .stat-box span { display: block; font-size: 20px; margin-top: 5px; }
         
         /* ประวัติรายการ */
         .history-box { max-height: 200px; overflow-y: auto; background: var(--gray); border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 14px;}
@@ -65,6 +65,9 @@
         .btn-confirm { background: var(--success); color: white; border: none; }
         .btn-checkout { background: var(--primary); color: white; border: none; width: 100%; margin-top: 20px; padding: 12px; border-radius: 8px; font-weight: bold;}
         .logout-btn { background: #7f8c8d; color: white; border: none; padding: 8px 15px; float: right; cursor: pointer; border-radius: 5px; margin-bottom: 15px;}
+        
+        /* แถบเลือกเดือน */
+        .account-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--gray); padding-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -84,7 +87,11 @@
         <div class="room-grid" id="roomContainer"></div>
 
         <div class="dashboard">
-            <h2>สรุปบัญชี <span id="currentMonthLabel" style="color: #e67e22;"></span></h2>
+            <div class="account-header">
+                <h2 style="margin: 0; font-size: 20px;">รายงานบัญชี</h2>
+                <select id="monthSelector" style="max-width: 180px; padding: 6px; font-size: 14px; margin: 0;"></select>
+            </div>
+            
             <div class="stats">
                 <div class="stat-box">รายได้<span id="totalIncome" class="text-green">0</span></div>
                 <div class="stat-box">รายจ่าย<span id="totalExpense" class="text-red">0</span></div>
@@ -104,9 +111,8 @@
             </div>
             <button class="btn-main" id="btnSaveExpense">บันทึกรายจ่าย</button>
 
-            <h3 style="margin-top: 25px; text-align: left; font-size: 16px;">ประวัติรายการเดือนนี้</h3>
-            <div class="history-box" id="transactionHistory">
-                </div>
+            <h3 style="margin-top: 25px; text-align: left; font-size: 16px;" id="historyTitle">ประวัติรายการ</h3>
+            <div class="history-box" id="transactionHistory"></div>
         </div>
     </div>
 
@@ -180,10 +186,30 @@
 
         let currentSelectedRoomId = null;
 
+        // ฟังก์ชันสร้างตัวเลือกเด็ดย้อนหลัง 12 เดือนอัตโนมัติ
+        function generateMonthOptions() {
+            const selector = document.getElementById('monthSelector');
+            selector.innerHTML = '';
+            const now = new Date();
+            const monthNames = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            
+            for (let i = 0; i < 12; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const m = d.getMonth();
+                const y = d.getFullYear();
+                const opt = document.createElement('option');
+                opt.value = `${y}-${m}`;
+                opt.innerText = `${monthNames[m]} ${y + 543}`;
+                selector.appendChild(opt);
+            }
+            selector.addEventListener('change', updateDashboard);
+        }
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById('authContainer').style.display = 'none';
                 document.getElementById('appContainer').style.display = 'block';
+                generateMonthOptions(); // สร้างเมนูเดือนย้อนหลังครั้งแรก
                 startRealtimeSync();
             } else {
                 document.getElementById('authContainer').style.display = 'block';
@@ -194,11 +220,8 @@
         document.getElementById('btnLogin').addEventListener('click', async () => {
             const email = document.getElementById('loginEmail').value;
             const pass = document.getElementById('loginPassword').value;
-            try {
-                await signInWithEmailAndPassword(auth, email, pass);
-            } catch (error) {
-                alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-            }
+            try { await signInWithEmailAndPassword(auth, email, pass); } 
+            catch (error) { alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง'); }
         });
 
         document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
@@ -207,13 +230,10 @@
             onSnapshot(doc(db, "resortData", "mainState"), (docSnap) => {
                 if (docSnap.exists() && docSnap.data().rooms) {
                     const cloudData = docSnap.data();
-                    
-                    // ระบบตรวจสอบและล้างข้อมูลเวอร์ชันเก่าอัตโนมัติ
                     if (cloudData.rooms.length > 0 && !cloudData.rooms[0].type) {
-                        saveDataToCloud(); // เซฟทับข้อมูลใหม่ลงไปทันที
+                        saveDataToCloud(); 
                         return;
                     }
-                    
                     appData = cloudData;
                     if(!appData.transactions) appData.transactions = [];
                 } else {
@@ -236,10 +256,7 @@
                 const div = document.createElement('div');
                 div.className = `room ${room.status === 'occupied' ? 'occupied' : ''}`;
                 const typeLabel = pricing[room.type].label;
-                div.innerHTML = `
-                    <span class="room-name">${room.name}</span>
-                    <span class="room-type">(${typeLabel})</span>
-                `;
+                div.innerHTML = `<span class="room-name">${room.name}</span><span class="room-type">(${typeLabel})</span>`;
                 div.onclick = () => handleRoomClick(room);
                 container.appendChild(div);
             });
@@ -327,30 +344,34 @@
             saveDataToCloud();
         });
 
+        // คำนวณตามเดือนที่ผู้ใช้เลือกใน Dropdown
         function updateDashboard() {
-            const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
-            const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-            document.getElementById('currentMonthLabel').innerText = `(${monthNames[currentMonth]} ${currentYear + 543})`;
+            const selector = document.getElementById('monthSelector');
+            if(!selector.value) return;
+            
+            const [selectedYear, selectedMonth] = selector.value.split('-').map(Number);
+            const selectedText = selector.options[selector.selectedIndex].text;
+            
+            document.getElementById('historyTitle').innerText = `ประวัติรายการประจำเดือน ${selectedText}`;
 
             let monthlyIncome = 0;
             let monthlyExpense = 0;
             const historyContainer = document.getElementById('transactionHistory');
             historyContainer.innerHTML = '';
 
-            const thisMonthTx = appData.transactions.filter(tx => {
+            // กรองข้อมูลเฉพาะ เดือน และ ปี ที่ถูกเลือก
+            const filteredTx = appData.transactions.filter(tx => {
                 const txDate = new Date(tx.date);
-                return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
+                return txDate.getMonth() === selectedMonth && txDate.getFullYear() === selectedYear;
             });
 
-            thisMonthTx.sort((a, b) => b.id - a.id);
+            filteredTx.sort((a, b) => b.id - a.id);
 
-            if(thisMonthTx.length === 0) {
-                historyContainer.innerHTML = '<div style="text-align:center; color:gray; padding: 10px;">ยังไม่มีรายการในเดือนนี้</div>';
+            if(filteredTx.length === 0) {
+                historyContainer.innerHTML = '<div style="text-align:center; color:gray; padding: 10px;">ไม่มีรายการบันทึกในเดือนนี้</div>';
             }
 
-            thisMonthTx.forEach(tx => {
+            filteredTx.forEach(tx => {
                 const dateObj = new Date(tx.date);
                 const timeStr = `${dateObj.getDate()}/${dateObj.getMonth()+1} ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} น.`;
                 if(tx.type === 'income') {
@@ -364,6 +385,7 @@
 
             document.getElementById('totalIncome').innerText = monthlyIncome.toLocaleString() + ' ฿';
             document.getElementById('totalExpense').innerText = monthlyExpense.toLocaleString() + ' ฿';
+            
             const net = monthlyIncome - monthlyExpense;
             const netElement = document.getElementById('netProfit');
             if (net > 0) {
