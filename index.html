@@ -81,10 +81,8 @@
         <button class="logout-btn" id="btnLogout">ออกจากระบบ</button>
         <h1 style="clear: both; text-align: left;">สถานะห้องพัก</h1>
 
-        <!-- ตารางห้องพัก -->
         <div class="room-grid" id="roomContainer"></div>
 
-        <!-- แดชบอร์ดสรุปบัญชี -->
         <div class="dashboard">
             <h2>สรุปบัญชี <span id="currentMonthLabel" style="color: #e67e22;"></span></h2>
             <div class="stats">
@@ -108,12 +106,10 @@
 
             <h3 style="margin-top: 25px; text-align: left; font-size: 16px;">ประวัติรายการเดือนนี้</h3>
             <div class="history-box" id="transactionHistory">
-                <!-- ประวัติจะถูกใส่ตรงนี้ -->
-            </div>
+                </div>
         </div>
     </div>
 
-    <!-- Modal เช็คอิน -->
     <div class="modal" id="checkInModal">
         <div class="modal-content">
             <h3 id="modalRoomName">เช็คอินห้อง</h3>
@@ -135,7 +131,6 @@
         </div>
     </div>
 
-    <!-- Modal เช็คเอาท์ -->
     <div class="modal" id="checkOutModal">
         <div class="modal-content">
             <h3 id="checkoutRoomName">จัดการห้อง</h3>
@@ -164,14 +159,12 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // ราคาอ้างอิง
         const pricing = {
             vip: { overnight: 500, short: 300, label: "VIP" },
             standard: { overnight: 400, short: 250, label: "ธรรมดา" },
             fan: { overnight: 300, short: 200, label: "พัดลม" }
         };
 
-        // โครงสร้างข้อมูลตั้งต้นใหม่ (มีหมวดหมู่ห้องชัดเจน และระบบบันทึก Transaction)
         let appData = {
             rooms: [
                 { id: "3", name: "ห้อง 3", type: "fan", status: "available" },
@@ -182,7 +175,7 @@
                 { id: "v1", name: "ห้อง V1", type: "vip", status: "available" },
                 { id: "v2", name: "ห้อง V2", type: "vip", status: "available" }
             ],
-            transactions: [] // เก็บประวัติรายรับ-รายจ่าย
+            transactions: []
         };
 
         let currentSelectedRoomId = null;
@@ -213,10 +206,18 @@
         function startRealtimeSync() {
             onSnapshot(doc(db, "resortData", "mainState"), (docSnap) => {
                 if (docSnap.exists() && docSnap.data().rooms) {
-                    appData = docSnap.data();
-                    if(!appData.transactions) appData.transactions = []; // กันเหนียวกรณีไม่มี array
+                    const cloudData = docSnap.data();
+                    
+                    // ระบบตรวจสอบและล้างข้อมูลเวอร์ชันเก่าอัตโนมัติ
+                    if (cloudData.rooms.length > 0 && !cloudData.rooms[0].type) {
+                        saveDataToCloud(); // เซฟทับข้อมูลใหม่ลงไปทันที
+                        return;
+                    }
+                    
+                    appData = cloudData;
+                    if(!appData.transactions) appData.transactions = [];
                 } else {
-                    saveDataToCloud(); // ถ้าไม่มีข้อมูลเลยให้เซฟของตั้งต้นขึ้นไป
+                    saveDataToCloud();
                 }
                 renderRooms();
                 updateDashboard();
@@ -228,16 +229,13 @@
             catch (e) { console.error("Error saving data: ", e); }
         }
 
-        // แสดงห้องพัก
         function renderRooms() {
             const container = document.getElementById('roomContainer');
             container.innerHTML = '';
             appData.rooms.forEach(room => {
                 const div = document.createElement('div');
                 div.className = `room ${room.status === 'occupied' ? 'occupied' : ''}`;
-                
                 const typeLabel = pricing[room.type].label;
-                
                 div.innerHTML = `
                     <span class="room-name">${room.name}</span>
                     <span class="room-type">(${typeLabel})</span>
@@ -247,7 +245,6 @@
             });
         }
 
-        // อัปเดตราคาแบบ Realtime ตอนเลือก ค้างคืน/ชั่วคราว
         document.getElementById('stayType').addEventListener('change', (e) => {
             if(!currentSelectedRoomId) return;
             const room = appData.rooms.find(r => r.id === currentSelectedRoomId);
@@ -259,13 +256,11 @@
             currentSelectedRoomId = room.id;
             if (room.status === 'available') {
                 const typeLabel = pricing[room.type].label;
-                const defaultPrice = pricing[room.type]['overnight']; // ค่าเริ่มต้นค้างคืน
-                
+                const defaultPrice = pricing[room.type]['overnight'];
                 document.getElementById('modalRoomName').innerText = `เช็คอิน: ${room.name}`;
                 document.getElementById('modalRoomTypeDisplay').innerText = `ประเภท: ห้อง${typeLabel}`;
                 document.getElementById('stayType').value = 'overnight';
                 document.getElementById('pricePreview').innerText = `ราคา: ${defaultPrice} บาท`;
-                
                 document.getElementById('checkInModal').style.display = 'flex';
             } else {
                 document.getElementById('checkoutRoomName').innerText = room.name;
@@ -281,7 +276,6 @@
         document.getElementById('btnCancelCheckIn').addEventListener('click', closeModal);
         document.getElementById('btnCancelCheckOut').addEventListener('click', closeModal);
 
-        // บันทึกเช็คอิน + เก็บ Timestamp
         document.getElementById('btnConfirmCheckIn').addEventListener('click', () => {
             const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
             const room = appData.rooms[roomIndex];
@@ -289,10 +283,7 @@
             const price = pricing[room.type][sType];
             const now = new Date();
 
-            // เปลี่ยนสถานะห้อง
             appData.rooms[roomIndex].status = 'occupied';
-            
-            // เพิ่มประวัติบัญชี
             appData.transactions.push({
                 id: now.getTime(),
                 type: 'income',
@@ -305,7 +296,6 @@
             closeModal();
         });
 
-        // เคลียร์ห้อง
         document.getElementById('btnConfirmCheckOut').addEventListener('click', () => {
             const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
             appData.rooms[roomIndex].status = 'available';
@@ -313,7 +303,6 @@
             closeModal();
         });
 
-        // บันทึกค่าใช้จ่าย
         document.getElementById('btnSaveExpense').addEventListener('click', () => {
             const category = document.getElementById('expenseCategory').value;
             const amount = Number(document.getElementById('expenseAmount').value);
@@ -338,27 +327,23 @@
             saveDataToCloud();
         });
 
-        // คำนวณบัญชีเฉพาะเดือนปัจจุบัน
         function updateDashboard() {
             const now = new Date();
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
-            
             const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-            document.getElementById('currentMonthLabel').innerText = `(${monthNames[currentMonth]} ${currentYear + 543})`; // แปลงเป็น พ.ศ.
+            document.getElementById('currentMonthLabel').innerText = `(${monthNames[currentMonth]} ${currentYear + 543})`;
 
             let monthlyIncome = 0;
             let monthlyExpense = 0;
             const historyContainer = document.getElementById('transactionHistory');
             historyContainer.innerHTML = '';
 
-            // กรองข้อมูลบัญชีเฉพาะเดือนนี้
             const thisMonthTx = appData.transactions.filter(tx => {
                 const txDate = new Date(tx.date);
                 return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
             });
 
-            // เรียงจากล่าสุดไปเก่าสุด
             thisMonthTx.sort((a, b) => b.id - a.id);
 
             if(thisMonthTx.length === 0) {
@@ -368,31 +353,19 @@
             thisMonthTx.forEach(tx => {
                 const dateObj = new Date(tx.date);
                 const timeStr = `${dateObj.getDate()}/${dateObj.getMonth()+1} ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} น.`;
-                
                 if(tx.type === 'income') {
                     monthlyIncome += tx.amount;
-                    historyContainer.innerHTML += `
-                        <div class="history-item">
-                            <div><span>${tx.desc}</span><br><small style="color:gray;">${timeStr}</small></div>
-                            <span class="text-green">+${tx.amount}</span>
-                        </div>`;
+                    historyContainer.innerHTML += `<div class="history-item"><div><span>${tx.desc}</span><br><small style="color:gray;">${timeStr}</small></div><span class="text-green">+${tx.amount}</span></div>`;
                 } else {
                     monthlyExpense += tx.amount;
-                    historyContainer.innerHTML += `
-                        <div class="history-item">
-                            <div><span>${tx.desc}</span><br><small style="color:gray;">${timeStr}</small></div>
-                            <span class="text-red">-${tx.amount}</span>
-                        </div>`;
+                    historyContainer.innerHTML += `<div class="history-item"><div><span>${tx.desc}</span><br><small style="color:gray;">${timeStr}</small></div><span class="text-red">-${tx.amount}</span></div>`;
                 }
             });
 
-            // สรุปยอด
             document.getElementById('totalIncome').innerText = monthlyIncome.toLocaleString() + ' ฿';
             document.getElementById('totalExpense').innerText = monthlyExpense.toLocaleString() + ' ฿';
-            
             const net = monthlyIncome - monthlyExpense;
             const netElement = document.getElementById('netProfit');
-            
             if (net > 0) {
                 netElement.innerText = 'กำไร ' + net.toLocaleString() + ' ฿';
                 netElement.style.color = 'var(--success)';
