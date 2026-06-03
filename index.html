@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Resort Cloud">
+    <title>ระบบจัดการรีสอร์ท (คลาวด์)</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --primary: #2c3e50;
+            --success: #4CAF50;
+            --danger: #F44336;
+            --white: #ffffff;
+        }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; background-color: var(--bg-color); padding: 20px; -webkit-tap-highlight-color: transparent; }
+        h1, h2 { color: var(--primary); text-align: center; }
+        
+        /* หน้าล็อกอิน */
+        .auth-container { max-width: 400px; margin: 100px auto; background: var(--white); padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .auth-container input { width: 100%; margin-bottom: 15px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; }
+        .auth-container button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* หน้าหลักของแอป (ซ่อนไว้ก่อนล็อกอิน) */
+        #appContainer { display: none; }
+        
+        /* UI ส่วนอื่นๆ */
+        .room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .room {
+            background: var(--success); color: var(--white);
+            border-radius: 12px; padding: 30px 10px; text-align: center;
+            font-size: 24px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s;
+        }
+        .room.occupied { background: var(--danger); }
+        .dashboard { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; }
+        .stat-box { padding: 15px; border-radius: 8px; background: #eef2f5; font-size: 18px; font-weight: bold; }
+        .stat-box span { display: block; font-size: 24px; color: var(--primary); margin-top: 5px; }
+        .expense-form { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        input, select, button { padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; outline: none; }
+        input, select { flex: 1; min-width: 150px; }
+        .btn-main { background: var(--primary); color: var(--white); border: none; cursor: pointer; font-weight: bold; }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: var(--white); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-group button { flex: 1; }
+        .btn-cancel { background: #95a5a6; color: white; border: none; }
+        .btn-confirm { background: var(--success); color: white; border: none; }
+        .btn-checkout { background: var(--primary); color: white; border: none; width: 100%; margin-top: 20px; }
+        .logout-btn { background: #7f8c8d; color: white; border: none; padding: 5px 15px; float: right; cursor: pointer; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="authContainer" class="auth-container">
+        <h2>ระบบจัดการรีสอร์ท</h2>
+        <p>กรุณาลงชื่อเข้าใช้งาน</p>
+        <input type="email" id="loginEmail" placeholder="อีเมล">
+        <input type="password" id="loginPassword" placeholder="รหัสผ่าน">
+        <button id="btnLogin">เข้าสู่ระบบ</button>
+    </div>
+
+    <div id="appContainer">
+        <button class="logout-btn" id="btnLogout">ออกจากระบบ</button>
+        <h1>จัดการห้องพักรีสอร์ท (คลาวด์)</h1>
+
+        <div class="room-grid" id="roomContainer"></div>
+
+        <div class="dashboard">
+            <h2>สรุปบัญชี (ข้อมูลบนระบบคลาวด์)</h2>
+            <div class="stats">
+                <div class="stat-box">รายได้รวม <span id="totalIncome">0</span></div>
+                <div class="stat-box">ค่าใช้จ่ายรวม <span id="totalExpense">0</span></div>
+                <div class="stat-box">กำไรสุทธิ <span id="netProfit">0</span></div>
+            </div>
+            
+            <h3 style="margin-top: 30px;">บันทึกค่าใช้จ่ายอื่นๆ</h3>
+            <div class="expense-form">
+                <input type="text" id="expenseName" placeholder="รายการ เช่น ค่าไฟ">
+                <input type="number" id="expenseAmount" placeholder="จำนวนเงิน (บาท)">
+                <button class="btn-main" id="btnSaveExpense">บันทึกรายจ่าย</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="checkInModal">
+        <div class="modal-content">
+            <h3 id="modalRoomName">เช็คอินห้อง</h3>
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label>ประเภทห้อง:</label>
+                <select id="roomType" style="width: 100%; margin-top: 5px;">
+                    <option value="vip">ห้อง VIP (ค้างคืน 500 / ชั่วคราว 300)</option>
+                    <option value="standard">ห้องธรรมดา (ค้างคืน 400 / ชั่วคราว 250)</option>
+                    <option value="fan">ห้องพัดลม (ค้างคืน 300 / ชั่วคราว 200)</option>
+                </select>
+            </div>
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label>ประเภทการพัก:</label>
+                <select id="stayType" style="width: 100%; margin-top: 5px;">
+                    <option value="overnight">ค้างคืน</option>
+                    <option value="short">ชั่วคราว</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button class="btn-cancel" id="btnCancelCheckIn">ยกเลิก</button>
+                <button class="btn-confirm" id="btnConfirmCheckIn">บันทึกเข้าพัก</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="checkOutModal">
+        <div class="modal-content">
+            <h3 id="checkoutRoomName">จัดการห้อง</h3>
+            <p>ห้องนี้มีผู้เข้าพักอยู่ ต้องการเคลียร์ห้องให้ว่างหรือไม่?</p>
+            <button class="btn-cancel" id="btnCancelCheckOut" style="width: 100%;">ปิดหน้าต่าง</button>
+            <button class="btn-checkout" id="btnConfirmCheckOut">เคลียร์ห้อง (เช็คเอาท์)</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // คอนฟิกจากหน้าจอ Firebase ของคุณ
+        const firebaseConfig = {
+            apiKey: "AIzaSyC8shKbvqwEgBXqRzfnboALb2kPyvv5UnA",
+            authDomain: "my-resort-app-60d6e.firebaseapp.com",
+            projectId: "my-resort-app-60d6e",
+            storageBucket: "my-resort-app-60d6e.firebasestorage.app",
+            messagingSenderId: "30815932961",
+            appId: "1:30815932961:web:2684a3a53d195ad4f00960",
+            measurementId: "G-FZYK7V66RY"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const pricing = {
+            vip: { overnight: 500, short: 300 },
+            standard: { overnight: 400, short: 250 },
+            fan: { overnight: 300, short: 200 }
+        };
+
+        let appData = {
+            rooms: [
+                { id: 1, name: "101", status: "available" },
+                { id: 2, name: "102", status: "available" },
+                { id: 3, name: "103", status: "available" },
+                { id: 4, name: "104", status: "available" },
+                { id: 5, name: "105", status: "available" },
+                { id: 6, name: "106", status: "available" }
+            ],
+            incomeTotal: 0,
+            expenseTotal: 0
+        };
+
+        let currentSelectedRoomId = null;
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'block';
+                startRealtimeSync();
+            } else {
+                document.getElementById('authContainer').style.display = 'block';
+                document.getElementById('appContainer').style.display = 'none';
+            }
+        });
+
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPassword').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (error) {
+                alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง: ' + error.message);
+            }
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
+
+        function startRealtimeSync() {
+            onSnapshot(doc(db, "resortData", "mainState"), (docSnap) => {
+                if (docSnap.exists()) {
+                    appData = docSnap.data();
+                } else {
+                    saveDataToCloud();
+                }
+                renderRooms();
+                updateDashboard();
+            });
+        }
+
+        async function saveDataToCloud() {
+            try {
+                await setDoc(doc(db, "resortData", "mainState"), appData);
+            } catch (e) {
+                console.error("Error saving data: ", e);
+            }
+        }
+
+        function renderRooms() {
+            const container = document.getElementById('roomContainer');
+            container.innerHTML = '';
+            appData.rooms.forEach(room => {
+                const div = document.createElement('div');
+                div.className = `room ${room.status === 'occupied' ? 'occupied' : ''}`;
+                div.innerText = room.name;
+                div.onclick = () => handleRoomClick(room.id, room.status, room.name);
+                container.appendChild(div);
+            });
+        }
+
+        function handleRoomClick(id, status, name) {
+            currentSelectedRoomId = id;
+            if (status === 'available') {
+                document.getElementById('modalRoomName').innerText = `เช็คอินห้อง ${name}`;
+                document.getElementById('checkInModal').style.display = 'flex';
+            } else {
+                document.getElementById('checkoutRoomName').innerText = `ห้อง ${name}`;
+                document.getElementById('checkOutModal').style.display = 'flex';
+            }
+        }
+
+        const closeModal = () => {
+            document.getElementById('checkInModal').style.display = 'none';
+            document.getElementById('checkOutModal').style.display = 'none';
+            currentSelectedRoomId = null;
+        };
+        document.getElementById('btnCancelCheckIn').addEventListener('click', closeModal);
+        document.getElementById('btnCancelCheckOut').addEventListener('click', closeModal);
+
+        document.getElementById('btnConfirmCheckIn').addEventListener('click', () => {
+            const rType = document.getElementById('roomType').value;
+            const sType = document.getElementById('stayType').value;
+            const price = pricing[rType][sType];
+
+            const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
+            appData.rooms[roomIndex].status = 'occupied';
+            appData.incomeTotal += price;
+
+            saveDataToCloud();
+            closeModal();
+        });
+
+        document.getElementById('btnConfirmCheckOut').addEventListener('click', () => {
+            const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
+            appData.rooms[roomIndex].status = 'available';
+
+            saveDataToCloud();
+            closeModal();
+        });
+
+        document.getElementById('btnSaveExpense').addEventListener('click', () => {
+            const name = document.getElementById('expenseName').value;
+            const amount = Number(document.getElementById('expenseAmount').value);
+
+            if (!name || amount <= 0) {
+                alert('กรุณากรอกข้อมูลให้ถูกต้อง');
+                return;
+            }
+
+            appData.expenseTotal += amount;
+            document.getElementById('expenseName').value = '';
+            document.getElementById('expenseAmount').value = '';
+
+            saveDataToCloud();
+        });
+
+        function updateDashboard() {
+            document.getElementById('totalIncome').innerText = appData.incomeTotal.toLocaleString() + ' ฿';
+            document.getElementById('totalExpense').innerText = appData.expenseTotal.toLocaleString() + ' ฿';
+            
+            const net = appData.incomeTotal - appData.expenseTotal;
+            const netElement = document.getElementById('netProfit');
+            netElement.innerText = net.toLocaleString() + ' ฿';
+            netElement.style.color = net >= 0 ? 'var(--success)' : 'var(--danger)';
+        }
+    </script>
+</body>
+</html>
