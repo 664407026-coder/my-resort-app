@@ -13,6 +13,7 @@
             --primary: #2c3e50;
             --success: #4CAF50;
             --danger: #F44336;
+            --warning: #f39c12;
             --white: #ffffff;
             --gray: #eef2f5;
         }
@@ -31,6 +32,7 @@
             background: var(--success); color: var(--white);
             border-radius: 12px; padding: 20px 10px; text-align: center;
             cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s;
+            position: relative;
         }
         .room:active { transform: scale(0.95); }
         .room.occupied { background: var(--danger); }
@@ -44,12 +46,14 @@
         .stat-box span { display: block; font-size: 20px; margin-top: 5px; }
         
         /* ประวัติรายการ */
-        .history-box { max-height: 200px; overflow-y: auto; background: var(--gray); border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 14px;}
-        .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; }
+        .history-box { max-height: 250px; overflow-y: auto; background: var(--gray); border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 14px;}
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #ddd; }
         .history-item:last-child { border-bottom: none; }
+        .history-details { flex: 1; }
         .text-green { color: var(--success); font-weight: bold;}
         .text-red { color: var(--danger); font-weight: bold;}
         .customer-note { display: block; font-size: 12px; color: #7f8c8d; margin-top: 2px; }
+        .btn-delete-tx { background: var(--danger); color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-left: 10px;}
 
         /* ฟอร์ม */
         .expense-form { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -61,15 +65,17 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000;}
         .modal-content { background: var(--white); padding: 25px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center; }
         .btn-group { display: flex; gap: 10px; margin-top: 20px; }
-        .btn-group button { flex: 1; padding: 12px; border-radius: 8px; font-weight: bold; }
+        .btn-group button { flex: 1; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .btn-cancel { background: #95a5a6; color: white; border: none; }
         .btn-confirm { background: var(--success); color: white; border: none; }
-        .btn-checkout { background: var(--primary); color: white; border: none; width: 100%; margin-top: 20px; padding: 12px; border-radius: 8px; font-weight: bold;}
+        .btn-checkout { background: var(--primary); color: white; border: none; width: 100%; margin-top: 20px; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;}
         
         /* Top Bar Buttons */
-        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;}
+        .top-bar-btns { display: flex; gap: 10px; flex-wrap: wrap;}
         .logout-btn { background: #7f8c8d; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; }
         .clear-all-btn { background: var(--danger); color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; font-weight: bold;}
+        .add-room-btn { background: var(--warning); color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; font-weight: bold;}
         
         .account-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--gray); padding-bottom: 10px; }
         
@@ -90,7 +96,8 @@
     <div id="appContainer">
         <div class="top-bar">
             <h1 style="margin: 0; text-align: left; font-size: 24px;">สถานะห้องพัก</h1>
-            <div>
+            <div class="top-bar-btns">
+                <button class="add-room-btn" id="btnAddRoom">+ เพิ่มห้อง</button>
                 <button class="clear-all-btn" id="btnClearAll">เคลียร์ทุกห้อง</button>
                 <button class="logout-btn" id="btnLogout">ออก</button>
             </div>
@@ -107,18 +114,13 @@
             <div class="stats">
                 <div class="stat-box">รายได้<span id="totalIncome" class="text-green">0</span></div>
                 <div class="stat-box">รายจ่าย<span id="totalExpense" class="text-red">0</span></div>
-                <div class="stat-box">ผลประกอบการ(กำไร)<span id="netProfit">0</span></div>
+                <div class="stat-box">ผลประกอบการ<span id="netProfit">0</span></div>
             </div>
             
             <h3>บันทึกค่าใช้จ่ายอื่นๆ</h3>
             <div class="expense-form">
                 <select id="expenseCategory">
-                    <option value="" disabled selected>-- เลือกหมวดหมู่ --</option>
-                    <option value="ค่าน้ำ">ค่าน้ำ</option>
-                    <option value="ค่าไฟ">ค่าไฟ</option>
-                    <option value="ค่าอุปกรณ์">ค่าอุปกรณ์</option>
-                    <option value="ค่าซ่อมบำรุง">ค่าซ่อมบำรุง</option>
-                    <option value="ค่าแรง/ค่าจ้าง">ค่าจ้าง</option>
+                    <!-- หมวดหมู่จะถูกเรนเดอร์จาก JS -->
                 </select>
                 <input type="number" id="expenseAmount" placeholder="จำนวนเงิน (บาท)">
             </div>
@@ -136,7 +138,7 @@
             
             <div style="margin-bottom: 15px;">
                 <label class="modal-label">ข้อมูลลูกค้า:</label>
-                <input type="text" id="customerInfo" placeholder="เบอร์โทรศัพท์ / เลขบัตร ปชช." style="width: 100%;">
+                <input type="text" id="customerInfo" placeholder="เบอร์โทรศัพท์ / ชื่อ" style="width: 100%;">
             </div>
 
             <div style="margin-bottom: 15px;">
@@ -162,9 +164,10 @@
     <div class="modal" id="checkOutModal">
         <div class="modal-content">
             <h3 id="checkoutRoomName">จัดการห้อง</h3>
-            <p>ห้องนี้มีผู้เข้าพักอยู่ ต้องการเคลียร์ห้องให้ว่างหรือไม่?</p>
-            <button class="btn-cancel" id="btnCancelCheckOut" style="width: 100%;">ปิดหน้าต่าง</button>
-            <button class="btn-checkout" id="btnConfirmCheckOut">เคลียร์ห้อง (เช็คเอาท์)</button>
+            <p>ห้องนี้มีผู้เข้าพักอยู่ ต้องการเคลียร์ห้องให้ว่าง หรือต้องการลบห้องนี้ทิ้ง?</p>
+            <button class="btn-checkout" id="btnConfirmCheckOut">เคลียร์ห้องให้ว่าง (เช็คเอาท์)</button>
+            <button class="btn-danger" id="btnDeleteRoom" style="width: 100%; margin-top: 10px; padding: 12px; border-radius: 8px; font-weight: bold; background: var(--danger); color: white; border: none; cursor: pointer;">ลบห้องพักนี้ทิ้ง</button>
+            <button class="btn-cancel" id="btnCancelCheckOut" style="width: 100%; margin-top: 10px; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">ปิดหน้าต่าง</button>
         </div>
     </div>
 
@@ -189,9 +192,11 @@
 
         const pricing = {
             vip: { overnight: 500, short: 300, label: "VIP" },
-            standard: { overnight: 400, short: 250, label: "เเอร์" },
+            standard: { overnight: 400, short: 250, label: "แอร์" },
             fan: { overnight: 300, short: 200, label: "พัดลม" }
         };
+
+        const defaultCategories = ["ค่าน้ำ", "ค่าไฟ", "ค่าอุปกรณ์", "ค่าซ่อมบำรุง", "ค่าแรง/ค่าจ้าง"];
 
         let appData = {
             rooms: [
@@ -203,7 +208,8 @@
                 { id: "v1", name: "ห้อง V1", type: "vip", status: "available" },
                 { id: "v2", name: "ห้อง V2", type: "vip", status: "available" }
             ],
-            transactions: []
+            transactions: [],
+            expenseCategories: [...defaultCategories]
         };
 
         let currentSelectedRoomId = null;
@@ -257,10 +263,12 @@
                     }
                     appData = cloudData;
                     if(!appData.transactions) appData.transactions = [];
+                    if(!appData.expenseCategories) appData.expenseCategories = [...defaultCategories];
                 } else {
                     saveDataToCloud();
                 }
                 renderRooms();
+                renderExpenseCategories();
                 updateDashboard();
             });
         }
@@ -276,14 +284,66 @@
             appData.rooms.forEach(room => {
                 const div = document.createElement('div');
                 div.className = `room ${room.status === 'occupied' ? 'occupied' : ''}`;
-                const typeLabel = pricing[room.type].label;
+                const typeLabel = pricing[room.type] ? pricing[room.type].label : "ไม่ระบุ";
                 div.innerHTML = `<span class="room-name">${room.name}</span><span class="room-type">(${typeLabel})</span>`;
                 div.onclick = () => handleRoomClick(room);
                 container.appendChild(div);
             });
         }
 
-        // อัปเดตราคาในช่องกรอกเมื่อเปลี่ยนประเภทการเข้าพัก
+        function renderExpenseCategories() {
+            const select = document.getElementById('expenseCategory');
+            select.innerHTML = '<option value="" disabled selected>-- เลือกหมวดหมู่ --</option>';
+            appData.expenseCategories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                select.appendChild(opt);
+            });
+            const addNewOpt = document.createElement('option');
+            addNewOpt.value = "add_new";
+            addNewOpt.innerText = "+ เพิ่มหมวดหมู่ใหม่...";
+            addNewOpt.style.fontWeight = "bold";
+            addNewOpt.style.color = "var(--primary)";
+            select.appendChild(addNewOpt);
+        }
+
+        // จัดการเมื่อเลือก "เพิ่มหมวดหมู่ใหม่"
+        document.getElementById('expenseCategory').addEventListener('change', (e) => {
+            if (e.target.value === 'add_new') {
+                const newCat = prompt("กรุณาตั้งชื่อหมวดหมู่รายจ่ายใหม่:");
+                if (newCat && newCat.trim() !== '') {
+                    appData.expenseCategories.push(newCat.trim());
+                    saveDataToCloud();
+                    renderExpenseCategories();
+                    document.getElementById('expenseCategory').value = newCat.trim();
+                } else {
+                    document.getElementById('expenseCategory').value = ""; // Reset ถ้ากดยกเลิก
+                }
+            }
+        });
+
+        // เพิ่มห้องพักใหม่
+        document.getElementById('btnAddRoom').addEventListener('click', () => {
+            const roomName = prompt("กรุณาระบุชื่อห้อง (เช่น ห้อง 11 หรือ V3):");
+            if (!roomName || roomName.trim() === '') return;
+            
+            const roomTypeInput = prompt("ระบุประเภทห้อง (พิมพ์หมายเลข):\n1 = VIP\n2 = แอร์ (Standard)\n3 = พัดลม (Fan)", "2");
+            let roomType = 'standard';
+            if (roomTypeInput === '1') roomType = 'vip';
+            else if (roomTypeInput === '3') roomType = 'fan';
+
+            const newRoom = {
+                id: "r_" + new Date().getTime(),
+                name: roomName.trim(),
+                type: roomType,
+                status: "available"
+            };
+
+            appData.rooms.push(newRoom);
+            saveDataToCloud();
+        });
+
         document.getElementById('stayType').addEventListener('change', (e) => {
             if(!currentSelectedRoomId) return;
             const room = appData.rooms.find(r => r.id === currentSelectedRoomId);
@@ -300,7 +360,6 @@
                 document.getElementById('modalRoomName').innerText = `เช็คอิน: ${room.name}`;
                 document.getElementById('modalRoomTypeDisplay').innerText = `ประเภท: ห้อง${typeLabel}`;
                 
-                // เซ็ตค่าเริ่มต้นในฟอร์ม
                 document.getElementById('customerInfo').value = '';
                 document.getElementById('stayType').value = 'overnight';
                 document.getElementById('customPrice').value = defaultPrice;
@@ -308,6 +367,9 @@
                 document.getElementById('checkInModal').style.display = 'flex';
             } else {
                 document.getElementById('checkoutRoomName').innerText = room.name;
+                
+                // ถือโอกาสแก้ไข: ปรับปุ่มลบห้องให้แสดงเฉพาะตอนห้องสถานะว่าง หรือจัดการใน CheckOut Modal
+                // ในที่นี้เพิ่มตัวเลือกให้ลบห้องได้ในหน้าต่างตั้งค่าของห้องนั้น
                 document.getElementById('checkOutModal').style.display = 'flex';
             }
         }
@@ -320,7 +382,7 @@
         document.getElementById('btnCancelCheckIn').addEventListener('click', closeModal);
         document.getElementById('btnCancelCheckOut').addEventListener('click', closeModal);
 
-        // บันทึกเช็คอินแบบใหม่ (ใช้ราคาที่กรอก + เก็บข้อมูลลูกค้า)
+        // เช็คอินเข้าพัก
         document.getElementById('btnConfirmCheckIn').addEventListener('click', () => {
             const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
             const room = appData.rooms[roomIndex];
@@ -328,7 +390,7 @@
             const finalPrice = Number(document.getElementById('customPrice').value);
             let custInfo = document.getElementById('customerInfo').value.trim();
             
-            if (!custInfo) custInfo = "ไม่ระบุ"; // ถ้าไม่กรอกให้เป็นค่านี้
+            if (!custInfo) custInfo = "ไม่ระบุ"; 
             if (finalPrice < 0) { alert('ราคาไม่สามารถติดลบได้'); return; }
 
             const now = new Date();
@@ -346,11 +408,22 @@
             closeModal();
         });
 
+        // เคลียร์ห้องเช็คเอาท์
         document.getElementById('btnConfirmCheckOut').addEventListener('click', () => {
             const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
             appData.rooms[roomIndex].status = 'available';
             saveDataToCloud();
             closeModal();
+        });
+
+        // ลบห้องพักนี้ทิ้ง
+        document.getElementById('btnDeleteRoom').addEventListener('click', () => {
+            const isConfirm = confirm('คุณแน่ใจหรือไม่ที่จะ "ลบห้องพักนี้ทิ้ง" จากระบบอย่างถาวร?');
+            if (isConfirm) {
+                appData.rooms = appData.rooms.filter(r => r.id !== currentSelectedRoomId);
+                saveDataToCloud();
+                closeModal();
+            }
         });
 
         // ฟังก์ชัน เคลียร์ทุกห้อง
@@ -368,7 +441,7 @@
             const category = document.getElementById('expenseCategory').value;
             const amount = Number(document.getElementById('expenseAmount').value);
 
-            if (!category || amount <= 0) {
+            if (!category || category === 'add_new' || amount <= 0) {
                 alert('กรุณาเลือกหมวดหมู่และใส่จำนวนเงินให้ถูกต้อง');
                 return;
             }
@@ -386,6 +459,17 @@
             document.getElementById('expenseAmount').value = '';
 
             saveDataToCloud();
+        });
+
+        // ลบข้อมูลประวัติ (กรณีกรอกผิด / เปลี่ยนห้อง)
+        document.getElementById('transactionHistory').addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-delete-tx')) {
+                const txId = Number(e.target.dataset.id);
+                if (confirm('ยืนยันการลบรายการนี้? (การเงินจะถูกหักออก/บวกกลับทันที)')) {
+                    appData.transactions = appData.transactions.filter(tx => tx.id !== txId);
+                    saveDataToCloud();
+                }
+            }
         });
 
         function updateDashboard() {
@@ -417,29 +501,30 @@
                 const dateObj = new Date(tx.date);
                 const timeStr = `${dateObj.getDate()}/${dateObj.getMonth()+1} ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')} น.`;
                 
-                // แสดงข้อมูลลูกค้าในประวัติด้วย (ถ้ามี)
                 const customerDisplay = tx.customer ? `<span class="customer-note">ลูกค้า: ${tx.customer}</span>` : '';
 
                 if(tx.type === 'income') {
                     monthlyIncome += tx.amount;
                     historyContainer.innerHTML += `
                         <div class="history-item">
-                            <div>
+                            <div class="history-details">
                                 <span>${tx.desc}</span><br>
                                 <small style="color:gray;">${timeStr}</small>
                                 ${customerDisplay}
                             </div>
                             <span class="text-green">+${tx.amount}</span>
+                            <button class="btn-delete-tx" data-id="${tx.id}">ลบ</button>
                         </div>`;
                 } else {
                     monthlyExpense += tx.amount;
                     historyContainer.innerHTML += `
                         <div class="history-item">
-                            <div>
+                            <div class="history-details">
                                 <span>${tx.desc}</span><br>
                                 <small style="color:gray;">${timeStr}</small>
                             </div>
                             <span class="text-red">-${tx.amount}</span>
+                            <button class="btn-delete-tx" data-id="${tx.id}">ลบ</button>
                         </div>`;
                 }
             });
