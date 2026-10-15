@@ -17,9 +17,14 @@ const db = getFirestore(app);
 const $ = id => document.getElementById(id);
 const money = n => "฿" + Number(n || 0).toLocaleString("th-TH", { maximumFractionDigits: 2 });
 const defaultCategories = ["ค่าน้ำ", "ค่าไฟ", "ค่าอุปกรณ์", "ค่าซ่อมบำรุง", "ค่าจ้างพนักงาน"];
-const pricing = { vip: { label: "VIP", overnight: 500, short: 300 }, standard: { label: "ห้องแอร์", overnight: 400, short: 250 }, fan: { label: "ห้องพัดลม", overnight: 300, short: 200 } };
-let appData = { rooms: [], transactions: [], expenseCategories: [...defaultCategories] };
+const defaultRoomTypes = [
+  { id: "vip", label: "VIP", overnight: 500, short: 300 },
+  { id: "standard", label: "ห้องแอร์", overnight: 400, short: 250 },
+  { id: "fan", label: "ห้องพัดลม", overnight: 300, short: 200 }
+];
+let appData = { rooms: [], transactions: [], expenseCategories: [...defaultCategories], roomTypes: [...defaultRoomTypes] };
 let currentUser = null, isAdmin = false, unsubscribeData = null, selectedRoomId = null, toastTimer;
+const roomTypeById = id => appData.roomTypes.find(type => type.id === id) || defaultRoomTypes.find(type => type.id === id) || defaultRoomTypes[1];
 
 function icons() { if (window.lucide) window.lucide.createIcons(); }
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3500); }
@@ -45,7 +50,13 @@ generateMonths();
 $("todayLabel").textContent = new Intl.DateTimeFormat("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
 icons();
 
-function closeSidebar() { $("sidebar").classList.remove("open"); $("sidebarOverlay").hidden = true; $("menuToggle").setAttribute("aria-expanded", "false"); }
+function updateMenuToggle() {
+  const mobile = window.innerWidth <= 780;
+  const expanded = mobile ? $("sidebar").classList.contains("open") : !$("appView").classList.contains("sidebar-collapsed");
+  $("menuToggle").setAttribute("aria-expanded", String(expanded));
+  $("menuToggle").setAttribute("aria-label", mobile ? (expanded ? "ปิดเมนู" : "เปิดเมนู") : (expanded ? "ย่อเมนูด้านข้าง" : "ขยายเมนูด้านข้าง"));
+}
+function closeSidebar() { $("sidebar").classList.remove("open"); $("sidebarOverlay").hidden = true; updateMenuToggle(); }
 function showPage(page) {
   if (page === "admin" && !isAdmin) return;
   if (!["dashboard", "rooms", "expenses", "admin"].includes(page)) page = "dashboard";
@@ -57,9 +68,20 @@ function showPage(page) {
   if (page === "admin") loadUsers();
 }
 document.querySelectorAll("[data-page]").forEach(button => button.addEventListener("click", () => showPage(button.dataset.page)));
-$("menuToggle").addEventListener("click", () => { const open = $("sidebar").classList.toggle("open"); $("sidebarOverlay").hidden = !open; $("menuToggle").setAttribute("aria-expanded", String(open)); });
+$("menuToggle").addEventListener("click", () => {
+  if (window.innerWidth <= 780) {
+    const open = $("sidebar").classList.toggle("open");
+    $("sidebarOverlay").hidden = !open;
+  } else {
+    const collapsed = $("appView").classList.toggle("sidebar-collapsed");
+    try { localStorage.setItem("ithara-sidebar-collapsed", String(collapsed)); } catch {}
+  }
+  updateMenuToggle();
+});
 $("sidebarOverlay").addEventListener("click", closeSidebar);
-window.addEventListener("resize", () => { if (window.innerWidth > 780) closeSidebar(); });
+window.addEventListener("resize", () => { if (window.innerWidth > 780) closeSidebar(); else updateMenuToggle(); });
+try { if (localStorage.getItem("ithara-sidebar-collapsed") === "true") $("appView").classList.add("sidebar-collapsed"); } catch {}
+updateMenuToggle();
 
 let authMode = "login";
 function setAuthMode(mode) {
@@ -127,7 +149,7 @@ onAuthStateChanged(auth, async user => {
   currentUser = user; isAdmin = false;
   $("adminNav").hidden = true;
   if (!user) {
-    appData = { rooms: [], transactions: [], expenseCategories: [...defaultCategories] };
+    appData = { rooms: [], transactions: [], expenseCategories: [...defaultCategories], roomTypes: [...defaultRoomTypes] };
     $("authView").hidden = false; $("appView").hidden = true; showPage("dashboard"); return;
   }
   $("authView").hidden = true; $("appView").hidden = false;
@@ -154,15 +176,17 @@ onAuthStateChanged(auth, async user => {
     if (!snapshot.exists()) {
       if (!initializing) {
         initializing = true;
-        appData = { rooms: [{ id: "r_1", name: "ห้องตัวอย่าง 1", type: "standard", status: "available" }], transactions: [], expenseCategories: [...defaultCategories] };
+        appData = { rooms: [{ id: "r_1", name: "ห้องตัวอย่าง 1", type: "standard", status: "available" }], transactions: [], expenseCategories: [...defaultCategories], roomTypes: [...defaultRoomTypes] };
         saveData().finally(() => { initializing = false; });
       }
     } else {
       const data = snapshot.data();
-      appData = { rooms: Array.isArray(data.rooms) ? data.rooms : [], transactions: Array.isArray(data.transactions) ? data.transactions : [], expenseCategories: Array.isArray(data.expenseCategories) ? data.expenseCategories : [...defaultCategories] };
-      appData.rooms = appData.rooms.map(room => ({ ...room, type: pricing[room.type] ? room.type : "standard" }));
+      appData = { rooms: Array.isArray(data.rooms) ? data.rooms : [], transactions: Array.isArray(data.transactions) ? data.transactions : [], expenseCategories: Array.isArray(data.expenseCategories) ? data.expenseCategories : [...defaultCategories], roomTypes: Array.isArray(data.roomTypes) && data.roomTypes.length ? data.roomTypes : [...defaultRoomTypes] };
+      appData.rooms = appData.rooms.map(room => ({ ...room, type: appData.roomTypes.some(type => type.id === room.type) ? room.type : "standard" }));
     }
+    const expired = markExpiredRooms();
     renderAll();
+    if (expired) { toast(expired + " ห้องครบ 24 ชั่วโมง รอทำความสะอาด"); void saveData(); }
   }, error => { console.error("Data sync failed", error); toast("ไม่สามารถโหลดข้อมูลที่พักได้ กรุณาตรวจสอบสิทธิ์หรือเครือข่าย"); });
 });
 
@@ -171,39 +195,119 @@ async function saveData() {
   try { await setDoc(doc(db, "resortData", currentUser.uid), appData); renderAll(); return true; }
   catch (error) { console.error("Save failed", error); toast("บันทึกข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง"); return false; }
 }
-function renderAll() { renderRooms(); renderCategories(); renderDashboard(); renderTransactions(); icons(); }
+function renderAll() { renderRoomTypes(); renderRooms(); renderCategories(); renderDashboard(); renderTransactions(); icons(); }
+
+function renderRoomTypes() {
+  const roomSelect = $("roomType"), currentRoomType = roomSelect.value;
+  roomSelect.replaceChildren(...appData.roomTypes.map(type => new Option(type.label, type.id)));
+  if (appData.roomTypes.some(type => type.id === currentRoomType)) roomSelect.value = currentRoomType;
+  const filter = $("roomTypeFilter"), currentFilter = filter.value;
+  filter.replaceChildren(new Option("ทุกประเภท", "all"), ...appData.roomTypes.map(type => new Option(type.label, type.id)));
+  filter.value = appData.roomTypes.some(type => type.id === currentFilter) ? currentFilter : "all";
+}
+function roomCheckInDate(room) {
+  const explicit = new Date(room.checkedInAt || "");
+  if (!Number.isNaN(explicit.getTime())) return explicit;
+  const latest = appData.transactions.filter(tx => tx.type === "income" && tx.roomId === room.id)
+    .map(tx => new Date(tx.date)).filter(date => !Number.isNaN(date.getTime()))
+    .sort((a, b) => b - a)[0];
+  return latest || null;
+}
+function markExpiredRooms() {
+  const now = Date.now(); let changed = 0;
+  safeRooms().forEach(room => {
+    if (room.status !== "occupied") return;
+    const started = roomCheckInDate(room);
+    if (started && now - started.getTime() >= 24 * 60 * 60 * 1000) {
+      room.status = "cleaning";
+      room.cleaningSince = new Date(now).toISOString();
+      changed++;
+    }
+  });
+  return changed;
+}
+function checkRoomExpiry() {
+  if (!currentUser || !safeRooms().length) return;
+  const changed = markExpiredRooms();
+  if (changed) { renderAll(); toast(changed + " ห้องครบ 24 ชั่วโมง รอทำความสะอาด"); void saveData(); }
+}
+setInterval(checkRoomExpiry, 60 * 1000);
+window.addEventListener("focus", checkRoomExpiry);
 
 function renderRooms() {
-  const rooms = safeRooms(), occupied = rooms.filter(room => room.status === "occupied").length;
-  $("allRoomsCount").textContent = rooms.length; $("availableCount").textContent = rooms.length - occupied; $("occupiedCount").textContent = occupied;
+  const rooms = safeRooms();
+  const occupied = rooms.filter(room => room.status === "occupied").length;
+  const cleaning = rooms.filter(room => room.status === "cleaning").length;
+  const available = rooms.length - occupied - cleaning;
+  $("allRoomsCount").textContent = rooms.length;
+  $("availableCount").textContent = available;
+  $("occupiedCount").textContent = occupied;
+  $("cleaningCount").textContent = cleaning;
   $("occupiedRooms").textContent = occupied + " / " + rooms.length;
   $("occupancyRate").textContent = "อัตราเข้าพัก " + (rooms.length ? Math.round(occupied / rooms.length * 100) : 0) + "%";
-  const search = $("roomSearch").value.trim().toLocaleLowerCase("th-TH"), filter = $("roomFilter").value;
-  const matching = rooms.filter(room => (filter === "all" || room.status === filter) && String(room.name).toLocaleLowerCase("th-TH").includes(search));
+  $("roomAlerts").hidden = cleaning === 0;
+  $("roomAlerts").textContent = cleaning ? "แจ้งเตือน: " + cleaning + " ห้องครบ 24 ชั่วโมงแล้ว — ลูกค้าออกแล้ว รอทำความสะอาด กรุณาตรวจสอบก่อนเปิดห้องว่าง" : "";
+  const search = $("roomSearch").value.trim().toLocaleLowerCase("th-TH");
+  const statusFilter = $("roomFilter").value, typeFilter = $("roomTypeFilter").value;
+  const collator = new Intl.Collator("th-TH", { numeric: true, sensitivity: "base" });
+  const matching = rooms.filter(room => {
+    const label = roomTypeById(room.type).label;
+    return (statusFilter === "all" || room.status === statusFilter)
+      && (typeFilter === "all" || room.type === typeFilter)
+      && (String(room.name).toLocaleLowerCase("th-TH").includes(search) || label.toLocaleLowerCase("th-TH").includes(search));
+  }).sort((a, b) => collator.compare(String(a.name), String(b.name)));
   const container = $("roomContainer"); container.replaceChildren();
-  if (!matching.length) { container.innerHTML = '<div class="empty-state">ไม่พบห้องพักตามเงื่อนไข</div>'; return; }
+  if (!matching.length) { container.innerHTML = '<div class="empty-state">ไม่พบห้องพักตามเงื่อนไข ลองเปลี่ยนคำค้นหาหรือตัวกรอง</div>'; return; }
   matching.forEach(room => {
+    const status = ["available", "occupied", "cleaning"].includes(room.status) ? room.status : "available";
+    const label = status === "occupied" ? "มีผู้เข้าพัก" : status === "cleaning" ? "ลูกค้าออกแล้ว รอทำความสะอาด" : "ห้องว่าง";
+    const helper = status === "occupied" ? (room.customer || "กำลังเข้าพัก") : status === "cleaning" ? "ครบ 24 ชั่วโมง · รอเคลียร์ห้อง" : "แตะเพื่อเช็คอิน";
     const button = document.createElement("button");
-    button.type = "button"; button.className = "room-card";
-    button.innerHTML = '<span class="room-card-top"><i data-lucide="bed-double"></i><span class="status-chip ' + (room.status === "occupied" ? "occupied" : "available") + '">' + (room.status === "occupied" ? "มีผู้เข้าพัก" : "ว่าง") + '</span></span><strong>' + escapeHtml(room.name) + '</strong><small>' + escapeHtml(pricing[room.type]?.label || "ห้องแอร์") + '</small>';
+    button.type = "button"; button.className = "room-card " + status;
+    button.setAttribute("aria-label", room.name + " " + label);
+    button.innerHTML = '<span class="room-card-top"><span class="room-card-icon"><i data-lucide="bed-double"></i></span><span class="status-chip ' + status + '">' + label + '</span></span><strong>' + escapeHtml(room.name) + '</strong><span class="room-card-type">' + escapeHtml(roomTypeById(room.type).label) + '</span><span class="room-card-helper">' + escapeHtml(helper) + '</span>';
     button.addEventListener("click", () => openStay(room.id)); container.appendChild(button);
   });
+  icons();
 }
 $("roomSearch").addEventListener("input", renderRooms);
 $("roomFilter").addEventListener("change", renderRooms);
+$("roomTypeFilter").addEventListener("change", renderRooms);
+function setCustomTypeFields(open) {
+  $("customRoomTypeFields").hidden = !open;
+  $("roomType").disabled = open;
+  for (const id of ["newRoomTypeName", "newRoomTypeOvernight", "newRoomTypeShort"]) $(id).required = open;
+  $("btnNewRoomType").setAttribute("aria-expanded", String(open));
+}
 function openRoomForm(room = null) {
-  $("roomForm").reset(); $("roomId").value = room?.id || "";
-  $("roomName").value = room?.name || ""; $("roomType").value = room?.type || "standard";
+  $("roomForm").reset(); setCustomTypeFields(false);
+  $("roomId").value = room?.id || "";
+  $("roomName").value = room?.name || "";
+  $("roomType").value = room?.type || "standard";
   $("roomDialogTitle").textContent = room ? "แก้ไขห้องพัก" : "เพิ่มห้องพัก";
   $("btnDeleteRoom").hidden = !room;
   $("roomDialog").showModal(); $("roomName").focus();
 }
 $("btnAddRoom").addEventListener("click", () => openRoomForm());
+$("btnNewRoomType").addEventListener("click", () => {
+  const open = $("customRoomTypeFields").hidden;
+  setCustomTypeFields(open);
+  if (open) $("newRoomTypeName").focus();
+});
 $("roomForm").addEventListener("submit", async event => {
   event.preventDefault();
-  const name = $("roomName").value.trim(), type = $("roomType").value, id = $("roomId").value;
+  const name = $("roomName").value.trim(), id = $("roomId").value;
   if (!name) return;
   if (safeRooms().some(room => room.name.toLocaleLowerCase("th-TH") === name.toLocaleLowerCase("th-TH") && room.id !== id)) { toast("ชื่อห้องนี้มีอยู่แล้ว"); return; }
+  let type = $("roomType").value;
+  if (!$("customRoomTypeFields").hidden) {
+    const label = $("newRoomTypeName").value.trim();
+    const overnight = Number($("newRoomTypeOvernight").value), short = Number($("newRoomTypeShort").value);
+    if (!label || !Number.isFinite(overnight) || !Number.isFinite(short) || overnight < 0 || short < 0) { toast("กรุณากรอกประเภทและราคาให้ถูกต้อง"); return; }
+    if (appData.roomTypes.some(item => item.label.toLocaleLowerCase("th-TH") === label.toLocaleLowerCase("th-TH"))) { toast("ประเภทห้องนี้มีอยู่แล้ว"); return; }
+    type = "type_" + newId();
+    appData.roomTypes.push({ id: type, label, overnight, short });
+  }
   if (id) { const room = appData.rooms.find(room => room.id === id); if (!room) return; room.name = name; room.type = type; }
   else appData.rooms.push({ id: newId(), name, type, status: "available" });
   if (await saveData()) { $("roomDialog").close(); toast("บันทึกห้องพักแล้ว"); }
@@ -215,37 +319,47 @@ $("btnDeleteRoom").addEventListener("click", async () => {
   if (await saveData()) { $("roomDialog").close(); toast("ลบห้องพักแล้ว"); }
 });
 $("btnClearAll").addEventListener("click", async () => {
-  if (!safeRooms().some(room => room.status === "occupied")) { toast("ทุกห้องว่างอยู่แล้ว"); return; }
-  if (!confirm("รีเซ็ตสถานะทุกห้องเป็นว่าง?")) return;
-  appData.rooms.forEach(room => { room.status = "available"; });
+  if (!safeRooms().some(room => room.status !== "available")) { toast("ทุกห้องว่างอยู่แล้ว"); return; }
+  if (!confirm("รีเซ็ตสถานะทุกห้องเป็นว่าง? รวมถึงห้องที่มีผู้เข้าพักและห้องรอทำความสะอาด")) return;
+  appData.rooms.forEach(room => { room.status = "available"; delete room.checkedInAt; delete room.cleaningSince; delete room.customer; });
   if (await saveData()) toast("รีเซ็ตสถานะห้องแล้ว");
 });
 function openStay(id) {
   const room = appData.rooms.find(room => room.id === id); if (!room) return;
   selectedRoomId = id; $("stayDialogTitle").textContent = room.name;
-  const occupied = room.status === "occupied";
-  $("stayAvailable").hidden = occupied; $("stayOccupied").hidden = !occupied;
-  $("checkInForm").reset(); $("customPrice").value = pricing[room.type]?.overnight ?? 400;
+  const available = room.status === "available";
+  $("stayAvailable").hidden = !available; $("stayOccupied").hidden = available;
+  if (!available) {
+    const cleaning = room.status === "cleaning";
+    $("stayStatusText").textContent = cleaning
+      ? "ครบ 24 ชั่วโมงแล้ว — ลูกค้าออกแล้ว รอทำความสะอาด กรุณาตรวจสอบห้องก่อนเปิดให้เข้าพักใหม่"
+      : "มีผู้เข้าพัก" + (room.customer ? ": " + room.customer : "") + " เมื่อเช็คเอาท์สถานะจะกลับเป็นห้องว่าง";
+    $("btnConfirmCheckOut").textContent = cleaning ? "ทำความสะอาดเสร็จ เปิดห้องว่าง" : "เช็คเอาท์และเคลียร์ห้อง";
+  }
+  $("checkInForm").reset(); $("customPrice").value = roomTypeById(room.type).overnight;
   $("stayDialog").showModal();
 }
 $("stayType").addEventListener("change", () => {
   const room = appData.rooms.find(room => room.id === selectedRoomId);
-  if (room) $("customPrice").value = pricing[room.type]?.[$("stayType").value] ?? 0;
+  if (room) $("customPrice").value = roomTypeById(room.type)[$("stayType").value] ?? 0;
 });
 $("checkInForm").addEventListener("submit", async event => {
   event.preventDefault();
   const room = appData.rooms.find(room => room.id === selectedRoomId);
   const amount = Number($("customPrice").value);
   if (!room || room.status !== "available" || !Number.isFinite(amount) || amount < 0) return;
-  room.status = "occupied";
-  appData.transactions.push({ id: newId(), type: "income", amount, roomId: room.id, date: new Date().toISOString(), desc: "เช็คอิน " + room.name, customer: $("customerInfo").value.trim() || "ลูกค้า Walk-in" });
+  const now = new Date().toISOString();
+  const customer = $("customerInfo").value.trim() || "ลูกค้า Walk-in";
+  room.status = "occupied"; room.checkedInAt = now; room.customer = customer;
+  delete room.cleaningSince;
+  appData.transactions.push({ id: newId(), type: "income", amount, roomId: room.id, date: now, desc: "เช็คอิน " + room.name, customer });
   if (await saveData()) { $("stayDialog").close(); toast("บันทึกการเข้าพักแล้ว"); }
 });
 $("btnConfirmCheckOut").addEventListener("click", async () => {
   const room = appData.rooms.find(room => room.id === selectedRoomId);
   if (!room) return;
-  room.status = "available";
-  if (await saveData()) { $("stayDialog").close(); toast("เช็คเอาท์แล้ว"); }
+  room.status = "available"; delete room.checkedInAt; delete room.cleaningSince; delete room.customer;
+  if (await saveData()) { $("stayDialog").close(); toast("เปิดห้องว่างแล้ว"); }
 });
 $("btnEditRoom").addEventListener("click", () => {
   const room = appData.rooms.find(room => room.id === selectedRoomId);
