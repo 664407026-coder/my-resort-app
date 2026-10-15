@@ -1,434 +1,80 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ระบบจัดการที่พัก</title>
-    
-    <!-- Google Fonts: Prompt -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <style>
-        :root {
-            var(--bg-base): #f1f5f9;
-            --card-bg: #ffffff;
-            --primary: #0f172a;
-            --primary-accent: #2563eb;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --text-main: #0f172a;
-            --text-sub: #64748b;
-            --border: rgba(15, 23, 42, 0.08);
-
-            --shadow-card: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04);
-            --shadow-card-hover: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(37, 99, 235, 0.2);
-            --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
-        }
-        
-        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-        
-        body { margin: 0; background-color: #f1f5f9; padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px; -webkit-tap-highlight-color: transparent; color: var(--text-main); min-height: 100vh;}
-
-        .card-panel { background: var(--card-bg); border-radius: 20px; box-shadow: var(--shadow-card); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        h1, h2, h3 { color: var(--text-main); margin-top: 0; font-weight: 600; letter-spacing: -0.3px; }
-        
-        /* Auth Container */
-        .auth-container { max-width: 380px; margin: 12vh auto; padding: 40px 32px; text-align: center; }
-        .auth-container input { width: 100%; margin-bottom: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px; background: #f8fafc; font-size: 15px; outline: none; transition: all 0.2s; }
-        .auth-container input:focus { border-color: var(--primary-accent); background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
-        
-        .btn-primary { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 500; font-size: 15px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15); }
-        .btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }
-        
-        .btn-outline { width: 100%; padding: 14px; background: white; color: var(--primary); border: 1px solid var(--primary); border-radius: 12px; font-weight: 500; font-size: 15px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
-        .btn-outline:hover { background: #f8fafc; transform: translateY(-1px); }
-        
-        #appContainer { display: none; max-width: 1100px; margin: auto; padding-top: 10px; padding-bottom: 40px;}
-        
-        /* Top Navigation */
-        .top-nav { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; margin-bottom: 32px; }
-        .user-profile { display: flex; align-items: center; gap: 14px; }
-        .user-avatar { background: #f1f5f9; color: var(--primary); width: 44px; height: 44px; border-radius: 14px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 0 1px rgba(15,23,42,0.05); }
-        .user-email { font-size: 15px; font-weight: 600; }
-        .user-role { font-size: 12px; color: var(--success); display: flex; align-items: center; gap: 4px; margin-top: 2px; font-weight: 500; }
-        
-        .btn-group-nav { display: flex; gap: 10px; }
-        .btn { padding: 10px 18px; border-radius: 12px; font-weight: 500; font-size: 14px; cursor: pointer; border: 1px solid var(--border); background: white; transition: all 0.2s; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
-        .btn:hover { background: #f8fafc; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
-        .btn-dark { background: var(--primary); color: white; border: none; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
-        .btn-dark:hover { opacity: 0.95; transform: translateY(-1px); }
-        
-        /* Room Section */
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 22px; margin-bottom: 40px; }
-        
-        .room { background: var(--card-bg); border-radius: 20px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: var(--shadow-card); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 145px; position: relative; border: 1px solid var(--border); }
-        .room:hover { transform: translateY(-6px); box-shadow: var(--shadow-card-hover); }
-        .room:active { transform: translateY(-2px) scale(0.98); }
-        
-        .room.available { border-top: 5px solid var(--success); }
-        .room.available .room-status-badge { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .room.occupied { background: linear-gradient(145deg, #ffffff, #fff5f5); border: 1px solid #fca5a5; border-top: 5px solid var(--danger); box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.12), 0 2px 6px rgba(0,0,0,0.04); }
-        .room.occupied:hover { box-shadow: 0 18px 25px -5px rgba(239, 68, 68, 0.22), 0 8px 10px rgba(0,0,0,0.06); }
-        .room.occupied .room-status-badge { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
-        .room.occupied .room-name { color: #991b1b; }
-        
-        .room-name { font-size: 26px; font-weight: 700; display: block; margin-bottom: 4px; color: var(--text-main); letter-spacing: -0.5px; }
-        .room-type { font-size: 13px; color: var(--text-sub); font-weight: 400; display: flex; align-items: center; gap: 4px; }
-        .room-status-badge { margin-top: 12px; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
-
-        /* Dashboard & Form */
-        .dashboard { padding: 32px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; margin-bottom: 32px; }
-        .stat-card { padding: 24px; border-radius: 18px; background: #ffffff; border: 1px solid var(--border); box-shadow: var(--shadow-card); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; justify-content: space-between; }
-        .stat-card.clickable { cursor: pointer; }
-        .stat-card.clickable:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-4px); }
-        
-        .stat-header { display: flex; justify-content: space-between; align-items: center; color: var(--text-sub); font-size: 13px; font-weight: 500; margin-bottom: 12px; }
-        .stat-value { font-size: 30px; font-weight: 700; letter-spacing: -0.8px; }
-        .click-hint { font-size: 12px; color: var(--primary-accent); display: flex; align-items: center; gap: 4px; margin-top: 10px; font-weight: 500; }
-        
-        .text-green { color: var(--success); }
-        .text-red { color: var(--danger); }
-
-        .expense-form { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 15px; }
-        select, input { padding: 12px 16px; font-size: 14px; border: 1px solid var(--border); border-radius: 12px; outline: none; background: #fff; flex: 1; min-width: 160px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
-        select:focus, input:focus { border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
-        
-        .btn-submit { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 500; padding: 12px 24px; border-radius: 12px; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15); }
-        .btn-submit:hover { opacity: 0.95; transform: translateY(-1px); }
-        
-        /* Modal */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000;}
-        .modal-content { background: #ffffff; padding: 32px; border-radius: 24px; width: 90%; max-width: 420px; box-shadow: var(--shadow-modal); border: 1px solid var(--border); animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);}
-        @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-        
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
-        .modal-close { background: none; border: none; color: var(--text-sub); cursor: pointer; padding: 6px; border-radius: 8px; transition: background 0.2s; }
-        .modal-close:hover { background: #f1f5f9; color: var(--danger); }
-        .modal-label { display: block; text-align: left; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: var(--text-sub); }
-        
-        .detail-list { max-height: 320px; overflow-y: auto; }
-        .detail-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; border-bottom: 1px solid var(--border); font-size: 14px; transition: background 0.2s; border-radius: 10px; }
-        .detail-item:hover { background: #f8fafc; }
-        .detail-info { flex: 1; }
-        .detail-title { font-weight: 500; color: var(--text-main); }
-        .detail-time { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#102338">
+  <title>I-Thara Cloud | ระบบจัดการที่พัก</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script type="module" src="./app.js"></script>
 </head>
 <body>
-
-    <!-- ล็อกอิน / สมัครสมาชิก -->
-    <div id="authContainer" class="auth-container card-panel">
-        <div style="display: flex; justify-content: center; margin-bottom: 12px; color: var(--primary);">
-            <i data-lucide="building-2" width="44" height="44"></i>
-        </div>
-        <h2 style="margin-bottom: 4px;">I-Thara Cloud</h2>
-        <p style="color: var(--text-sub); margin-bottom: 28px; font-size: 13px;">ระบบจัดการที่พักและบัญชีแบบแยกข้อมูลส่วนตัว</p>
-        
-        <input type="email" id="loginEmail" placeholder="อีเมลของคุณ">
-        <input type="password" id="loginPassword" placeholder="รหัสผ่าน (6 ตัวอักษรขึ้นไป)">
-        
-        <button class="btn-primary" id="btnLogin"><i data-lucide="log-in" width="16" height="16"></i> เข้าสู่ระบบ</button>
-        <button class="btn-outline" id="btnRegister"><i data-lucide="user-plus" width="16" height="16"></i> สร้างบัญชีใหม่</button>
+  <main id="authView" class="auth-view">
+    <section class="auth-card" aria-labelledby="authTitle">
+      <div class="brand-mark"><i data-lucide="building-2"></i></div>
+      <p class="eyebrow">RESORT MANAGEMENT</p>
+      <h1 id="authTitle">I-Thara Cloud</h1>
+      <p id="authSubtitle" class="muted">จัดการห้องพักและดูผลประกอบการได้ในที่เดียว</p>
+      <form id="authForm" class="stack-form">
+        <label for="loginEmail">อีเมล</label><input id="loginEmail" type="email" autocomplete="email" required placeholder="name@example.com">
+        <label for="loginPassword">รหัสผ่าน</label><input id="loginPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร">
+        <div id="confirmPasswordGroup" class="confirm-password-group" hidden><label for="confirmPassword">ยืนยันรหัสผ่าน</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="กรอกรหัสผ่านอีกครั้ง"></div>
+        <button class="button primary full" id="btnLogin" type="submit"><i data-lucide="key-round"></i><span id="authSubmitLabel">เข้าสู่ระบบ</span></button>
+        <button class="button secondary full" id="btnRegister" type="button"><i data-lucide="user-plus"></i><span id="authToggleLabel">สร้างบัญชีใหม่ด้วยอีเมล</span></button>
+      </form>
+      <p id="authMessage" class="form-message" role="alert" aria-live="polite"></p>
+    </section>
+  </main>
+  <div id="appView" class="app-shell" hidden>
+    <aside id="sidebar" class="sidebar" aria-label="เมนูหลัก">
+      <div class="sidebar-brand"><div class="brand-mark small"><i data-lucide="building-2"></i></div><div><strong>I-Thara Cloud</strong><span>ระบบจัดการที่พัก</span></div></div>
+      <nav class="side-nav" aria-label="หน้าในระบบ">
+        <button class="nav-link active" data-page="dashboard" type="button"><i data-lucide="layout-dashboard"></i><span>แดชบอร์ด</span></button>
+        <button class="nav-link" data-page="rooms" type="button"><i data-lucide="bed-double"></i><span>จัดการห้องพัก</span></button>
+        <button class="nav-link" data-page="expenses" type="button"><i data-lucide="receipt-text"></i><span>รายรับรายจ่าย</span></button>
+        <button class="nav-link" data-page="admin" id="adminNav" type="button" hidden><i data-lucide="users-round"></i><span>ผู้ใช้งานระบบ</span></button>
+      </nav>
+      <div class="sidebar-foot"><span class="avatar"><i data-lucide="user-round"></i></span><div class="account"><strong id="userEmailDisplay"></strong><span id="userRoleDisplay">เจ้าของพื้นที่</span></div><button id="btnLogout" class="icon-button" type="button" title="ออกจากระบบ" aria-label="ออกจากระบบ"><i data-lucide="log-out"></i></button></div>
+    </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
+    <div class="workspace">
+      <header class="topbar"><button id="menuToggle" class="icon-button mobile-menu" type="button" aria-label="เปิดเมนู" aria-expanded="false"><i data-lucide="menu"></i></button><div><p class="eyebrow">I-THARA CLOUD</p><strong id="topbarTitle">แดชบอร์ด</strong></div><span class="topbar-date" id="todayLabel"></span></header>
+      <main class="main-content">
+        <section id="page-dashboard" class="page active" aria-labelledby="dashboardTitle">
+          <div class="page-heading"><div><p class="eyebrow">ภาพรวมธุรกิจ</p><h1 id="dashboardTitle">แดชบอร์ด</h1><p class="muted">ยอดรายรับ รายจ่าย และกำไรสุทธิของที่พัก</p></div><label class="select-label" for="monthSelector">เดือนที่แสดง<select id="monthSelector"></select></label></div>
+          <div class="stat-grid">
+            <article class="stat-card"><div class="stat-icon blue"><i data-lucide="bed-double"></i></div><span>ห้องที่มีผู้เข้าพัก</span><strong id="occupiedRooms">0 / 0</strong><small id="occupancyRate">อัตราเข้าพัก 0%</small></article>
+            <article class="stat-card"><div class="stat-icon green"><i data-lucide="arrow-down-left"></i></div><span>รายรับ</span><strong id="totalIncome">฿0</strong><small>บันทึกเมื่อเช็คอิน</small></article>
+            <article class="stat-card"><div class="stat-icon red"><i data-lucide="arrow-up-right"></i></div><span>รายจ่าย</span><strong id="totalExpense">฿0</strong><small>จากรายการค่าใช้จ่าย</small></article>
+            <article class="stat-card"><div class="stat-icon purple"><i data-lucide="wallet"></i></div><span>กำไร / ขาดทุนสุทธิ</span><strong id="netProfit">฿0</strong><small>รายรับหักรายจ่าย</small></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel chart-panel" aria-labelledby="chartTitle"><div class="panel-heading"><div><h2 id="chartTitle">แนวโน้ม 6 เดือน</h2><p class="muted">เปรียบเทียบรายรับและรายจ่าย</p></div><div class="chart-legend"><span><i class="legend-dot income"></i>รายรับ</span><span><i class="legend-dot expense"></i>รายจ่าย</span></div></div><div id="trendChart" class="trend-chart" role="img" aria-label="กราฟรายรับและรายจ่ายย้อนหลัง 6 เดือน" aria-describedby="trendSummary"></div><div id="trendSummary" class="sr-only"></div></section>
+            <section class="panel" aria-labelledby="recentTitle"><div class="panel-heading"><div><h2 id="recentTitle">รายการล่าสุด</h2><p class="muted">รายการในเดือนที่เลือก</p></div><button class="text-button" data-page="expenses" type="button">ดูทั้งหมด <i data-lucide="arrow-right"></i></button></div><div id="recentTransactions" class="transaction-list"></div></section>
+          </div>
+        </section>
+        <section id="page-rooms" class="page" aria-labelledby="roomsTitle" hidden>
+          <div class="page-heading"><div><p class="eyebrow">พื้นที่ให้บริการ</p><h1 id="roomsTitle">จัดการห้องพัก</h1><p class="muted">แตะห้องเพื่อเช็คอิน เช็คเอาท์ หรือแก้ไขข้อมูล</p></div><button id="btnAddRoom" class="button primary" type="button"><i data-lucide="plus"></i> เพิ่มห้องพัก</button></div>
+          <div class="room-summary"><div><strong id="allRoomsCount">0</strong><span>ห้องทั้งหมด</span></div><div><strong id="availableCount">0</strong><span>ห้องว่าง</span></div><div><strong id="occupiedCount">0</strong><span>มีผู้เข้าพัก</span></div></div>
+          <div class="toolbar"><label class="search-field"><i data-lucide="search"></i><input id="roomSearch" type="search" placeholder="ค้นหาชื่อห้อง" aria-label="ค้นหาชื่อห้อง"></label><label class="filter-field" for="roomFilter">สถานะ<select id="roomFilter"><option value="all">ทั้งหมด</option><option value="available">ห้องว่าง</option><option value="occupied">มีผู้เข้าพัก</option></select></label></div>
+          <div id="roomContainer" class="room-grid"></div>
+          <div class="page-footer"><button id="btnClearAll" class="button subtle-danger" type="button"><i data-lucide="rotate-ccw"></i> รีเซ็ตทุกห้องเป็นว่าง</button></div>
+        </section>
+        <section id="page-expenses" class="page" aria-labelledby="expensesTitle" hidden>
+          <div class="page-heading"><div><p class="eyebrow">บัญชี</p><h1 id="expensesTitle">รายรับรายจ่าย</h1><p class="muted">ตรวจสอบรายการและบันทึกค่าใช้จ่ายของที่พัก</p></div><label class="select-label" for="transactionsMonth">เดือนที่แสดง<select id="transactionsMonth"></select></label></div>
+          <div class="finance-grid"><section class="panel" aria-labelledby="addExpenseTitle"><h2 id="addExpenseTitle">บันทึกรายจ่าย</h2><form id="expenseForm" class="stack-form"><label for="expenseCategory">หมวดหมู่</label><select id="expenseCategory" required></select><label for="expenseAmount">จำนวนเงิน (บาท)</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required placeholder="0.00"><button class="button primary" type="submit"><i data-lucide="plus"></i> บันทึกรายจ่าย</button></form><button id="btnAddCategory" class="text-button category-button" type="button"><i data-lucide="plus"></i> เพิ่มหมวดหมู่ใหม่</button></section><section class="panel"><h2>สรุปเดือนนี้</h2><div class="finance-total"><span>รายรับ</span><strong id="expensePageIncome" class="positive">฿0</strong></div><div class="finance-total"><span>รายจ่าย</span><strong id="expensePageExpense" class="negative">฿0</strong></div><div class="finance-total net"><span>กำไร / ขาดทุน</span><strong id="expensePageNet">฿0</strong></div></section></div>
+          <section class="panel records-panel"><div class="panel-heading"><h2>รายการทั้งหมด</h2><span id="transactionCount" class="count-chip">0 รายการ</span></div><div id="allTransactions" class="transaction-list"></div></section>
+        </section>
+        <section id="page-admin" class="page" aria-labelledby="adminTitle" hidden><div class="page-heading"><div><p class="eyebrow">สำหรับผู้ดูแลระบบ</p><h1 id="adminTitle">ผู้ใช้งานระบบ</h1><p class="muted">บัญชีที่มีข้อมูลโปรไฟล์ในระบบ</p></div><span id="userCount" class="count-chip">0 บัญชี</span></div><div class="panel admin-panel"><div class="table-wrap"><table><thead><tr><th>อีเมล</th><th>UID</th><th>บันทึกในระบบเมื่อ</th></tr></thead><tbody id="usersTable"></tbody></table></div><p id="adminMessage" class="muted"></p></div></section>
+      </main>
     </div>
-
-    <!-- แอปพลิเคชัน -->
-    <div id="appContainer">
-        <div class="top-nav card-panel">
-            <div class="user-profile">
-                <div class="user-avatar"><i data-lucide="user" width="22" height="22"></i></div>
-                <div>
-                    <div class="user-email" id="userEmailDisplay">กำลังโหลด...</div>
-                    <div class="user-role" id="userRoleDisplay"><i data-lucide="shield-check" width="12" height="12"></i> เจ้าของพื้นที่</div>
-                </div>
-            </div>
-            <div class="btn-group-nav">
-                <button class="btn" id="btnLogout"><i data-lucide="log-out" width="15" height="15"></i> ออกจากระบบ</button>
-            </div>
-        </div>
-
-        <div class="section-header">
-            <h1 style="font-size: 20px; display: flex; align-items: center; gap: 8px;"><i data-lucide="door-open" width="22" height="22" style="color: var(--primary);"></i> ผังห้องพักของคุณ</h1>
-            <div class="btn-group-nav">
-                <button class="btn btn-dark" id="btnAddRoom"><i data-lucide="plus" width="15" height="15"></i> เพิ่มห้อง</button>
-                <button class="btn" id="btnClearAll" style="color: var(--danger);"><i data-lucide="rotate-ccw" width="15" height="15"></i> รีเซ็ตทุกห้อง</button>
-            </div>
-        </div>
-
-        <div class="room-grid" id="roomContainer"></div>
-
-        <div class="dashboard card-panel">
-            <div class="section-header" style="margin-bottom: 20px;">
-                <h2 style="font-size: 18px; display: flex; align-items: center; gap: 8px; margin: 0;"><i data-lucide="bar-chart-3" width="20" height="20" style="color: var(--primary);"></i> สรุปรายรับ - รายจ่าย</h2>
-                <select id="monthSelector" style="max-width: 180px; font-weight: 500;"></select>
-            </div>
-            
-            <div class="stats">
-                <div class="stat-card clickable" id="cardIncome">
-                    <div class="stat-header"><span>รายรับประจำเดือน</span><i data-lucide="arrow-down-right" width="20" height="20" class="text-green"></i></div>
-                    <div class="stat-value text-green" id="totalIncome">฿0</div>
-                    <div class="click-hint"><i data-lucide="list-filter" width="13" height="13"></i> แตะเพื่อดูประวัติ</div>
-                </div>
-                
-                <div class="stat-card clickable" id="cardExpense">
-                    <div class="stat-header"><span>รายจ่ายประจำเดือน</span><i data-lucide="arrow-up-right" width="20" height="20" class="text-red"></i></div>
-                    <div class="stat-value text-red" id="totalExpense">฿0</div>
-                    <div class="click-hint"><i data-lucide="list-filter" width="13" height="13"></i> แตะเพื่อดูประวัติ</div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-header"><span>ผลประกอบการสุทธิ</span><i data-lucide="wallet" width="20" height="20" style="color: var(--primary);"></i></div>
-                    <div class="stat-value" id="netProfit" style="color: var(--primary);">฿0</div>
-                </div>
-            </div>
-            
-            <h3 style="font-size: 15px; margin-bottom: 8px;">บันทึกรายจ่าย</h3>
-            <div class="expense-form">
-                <select id="expenseCategory"></select>
-                <input type="number" id="expenseAmount" placeholder="จำนวนเงิน (บาท)">
-                <button class="btn-submit" id="btnSaveExpense"><i data-lucide="check" width="16" height="16"></i> บันทึก</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modals (ย่อโค้ดเพื่อความกระชับ) -->
-    <div class="modal" id="checkInModal"><div class="modal-content"><div class="modal-header"><div><h2 id="modalRoomName" style="margin: 0; font-size: 20px;">เช็คอิน</h2><span id="modalRoomTypeDisplay" style="color: var(--text-sub); font-size: 13px;"></span></div><button class="modal-close" id="btnIconCloseCheckIn"><i data-lucide="x"></i></button></div><div style="margin-bottom: 14px;"><label class="modal-label">ข้อมูลผู้พัก:</label><input type="text" id="customerInfo" placeholder="ชื่อ หรือ เบอร์โทร" style="width: 100%;"></div><div style="margin-bottom: 14px;"><label class="modal-label">ประเภทการพัก:</label><select id="stayType" style="width: 100%;"><option value="overnight">ค้างคืน</option><option value="short">ชั่วคราว</option></select></div><div style="margin-bottom: 24px;"><label class="modal-label">ราคาห้อง (บาท):</label><input type="number" id="customPrice" style="width: 100%; font-weight: 700; color: var(--primary); font-size: 18px;"></div><button class="btn-submit" id="btnConfirmCheckIn" style="width: 100%; justify-content: center;">บันทึกเข้าพัก</button></div></div>
-    
-    <div class="modal" id="checkOutModal"><div class="modal-content"><div class="modal-header"><h2 id="checkoutRoomName" style="margin: 0; font-size: 20px;">จัดการห้องพัก</h2><button class="modal-close" id="btnIconCloseCheckOut"><i data-lucide="x"></i></button></div><button class="btn-submit" id="btnConfirmCheckOut" style="width: 100%; margin-bottom: 10px; background: var(--success); justify-content: center;"><i data-lucide="log-out" width="16" height="16"></i> เคลียร์ห้องว่าง</button><button class="btn" id="btnDeleteRoom" style="width: 100%; color: var(--danger); justify-content: center; border-color: #fca5a5;"><i data-lucide="trash-2" width="15" height="15"></i> ลบห้องพักนี้ทิ้ง</button></div></div>
-    
-    <div class="modal" id="detailsModal"><div class="modal-content"><div class="modal-header"><h2 id="detailsTitle" style="margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">รายละเอียด</h2><button class="modal-close" id="btnIconCloseDetails"><i data-lucide="x"></i></button></div><div class="detail-list" id="detailsListContainer"></div></div></div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        // รหัส Firebase ของคุณ
-        const firebaseConfig = {
-            apiKey: "AIzaSyC8shKbvqwEgBXqRzfnboALb2kPyvv5UnA",
-            authDomain: "my-resort-app-60d6e.firebaseapp.com",
-            projectId: "my-resort-app-60d6e",
-            storageBucket: "my-resort-app-60d6e.firebasestorage.app",
-            messagingSenderId: "30815932961",
-            appId: "1:30815932961:web:2684a3a53d195ad4f00960",
-            measurementId: "G-FZYK7V66RY"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        function refreshIcons() { lucide.createIcons(); }
-        refreshIcons();
-
-        // ตัวแปรสำคัญสำหรับระบบ SaaS
-        let currentUserId = null; 
-        
-        const defaultCategories = ["ค่าน้ำ", "ค่าไฟ", "ค่าอุปกรณ์", "ค่าซ่อมบำรุง", "ค่าจ้างพนักงาน"];
-        const pricing = { vip: { overnight: 500, short: 300, label: "VIP" }, standard: { overnight: 400, short: 250, label: "ห้องแอร์" }, fan: { overnight: 300, short: 200, label: "ห้องพัดลม" } };
-        let appData = { rooms: [], transactions: [], expenseCategories: [] };
-        let currentSelectedRoomId = null;
-
-        // เช็คสถานะล็อกอิน
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid; // เก็บ ID แยกของแต่ละคน
-                document.getElementById('userEmailDisplay').innerText = user.email;
-                document.getElementById('authContainer').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'block';
-                
-                generateMonthOptions();
-                startRealtimeSync();
-                refreshIcons();
-            } else {
-                currentUserId = null;
-                document.getElementById('authContainer').style.display = 'block';
-                document.getElementById('appContainer').style.display = 'none';
-            }
-        });
-
-        // ฟังก์ชันเข้าสู่ระบบ
-        document.getElementById('btnLogin').addEventListener('click', async () => {
-            const email = document.getElementById('loginEmail').value;
-            const pass = document.getElementById('loginPassword').value;
-            try { await signInWithEmailAndPassword(auth, email, pass); } 
-            catch (error) { alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง'); }
-        });
-
-        // ฟังก์ชันสมัครสมาชิกใหม่
-        document.getElementById('btnRegister').addEventListener('click', async () => {
-            const email = document.getElementById('loginEmail').value;
-            const pass = document.getElementById('loginPassword').value;
-            if(!email) return alert('กรุณากรอกอีเมล');
-            if(pass.length < 6) return alert('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
-            
-            try { 
-                await createUserWithEmailAndPassword(auth, email, pass); 
-                alert('สมัครสมาชิกสำเร็จ! พื้นที่ทำงานของคุณพร้อมใช้งานแล้ว');
-            } 
-            catch (error) { alert('ไม่สามารถสร้างบัญชีได้ (อีเมลอาจถูกใช้ไปแล้ว)'); }
-        });
-
-        document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
-
-        // ดึงข้อมูลและสร้างข้อมูลใหม่หากเพิ่งสมัคร
-        function startRealtimeSync() {
-            if(!currentUserId) return;
-            // อ่านเขียนข้อมูลจากแฟ้มชื่อรหัส UID ของตัวเองเท่านั้น!
-            onSnapshot(doc(db, "resortData", currentUserId), (docSnap) => {
-                if (docSnap.exists() && docSnap.data().rooms) {
-                    const cloudData = docSnap.data();
-                    if (cloudData.rooms.length > 0 && !cloudData.rooms[0].type) { saveDataToCloud(); return; }
-                    appData = cloudData;
-                    if(!appData.transactions) appData.transactions = [];
-                    if(!appData.expenseCategories) appData.expenseCategories = [...defaultCategories];
-                } else {
-                    // สร้างข้อมูลเริ่มต้นให้บัญชีใหม่
-                    appData = {
-                        rooms: [
-                            { id: "r_1", name: "ห้องตัวอย่าง 1", type: "standard", status: "available" }
-                        ],
-                        transactions: [],
-                        expenseCategories: [...defaultCategories]
-                    };
-                    saveDataToCloud();
-                }
-                renderRooms();
-                renderExpenseCategories();
-                updateDashboard();
-            });
-        }
-
-        async function saveDataToCloud() {
-            if(!currentUserId) return;
-            try { await setDoc(doc(db, "resortData", currentUserId), appData); } 
-            catch (e) { console.error("Error saving data: ", e); }
-        }
-
-        // ============================================
-        // ฟังก์ชันจัดการ UI เหมือนเดิมทั้งหมด (รวบย่อ)
-        // ============================================
-        function renderRooms() {
-            const container = document.getElementById('roomContainer'); container.innerHTML = '';
-            appData.rooms.forEach(room => {
-                const div = document.createElement('div'); div.className = `room ${room.status}`;
-                const typeLabel = pricing[room.type] ? pricing[room.type].label : "ไม่ระบุ";
-                const statusText = room.status === 'available' ? 'ว่าง' : 'มีผู้เข้าพัก';
-                div.innerHTML = `<span class="room-name">${room.name}</span><span class="room-type">${typeLabel}</span><span class="room-status-badge">${statusText}</span>`;
-                div.onclick = () => handleRoomClick(room); container.appendChild(div);
-            }); refreshIcons();
-        }
-
-        function renderExpenseCategories() {
-            const select = document.getElementById('expenseCategory'); select.innerHTML = '<option value="" disabled selected>-- เลือกหมวดหมู่ --</option>';
-            appData.expenseCategories.forEach(cat => { select.innerHTML += `<option value="${cat}">${cat}</option>`; });
-            select.innerHTML += `<option value="add_new" style="font-weight:bold;">+ เพิ่มหมวดหมู่ใหม่...</option>`;
-        }
-
-        document.getElementById('expenseCategory').addEventListener('change', (e) => {
-            if (e.target.value === 'add_new') {
-                const newCat = prompt("ระบุชื่อหมวดหมู่รายจ่ายใหม่:");
-                if (newCat && newCat.trim() !== '') { appData.expenseCategories.push(newCat.trim()); saveDataToCloud(); document.getElementById('expenseCategory').value = newCat.trim(); }
-                else { document.getElementById('expenseCategory').value = ""; }
-            }
-        });
-
-        document.getElementById('btnAddRoom').addEventListener('click', () => {
-            const roomName = prompt("ชื่อห้องพักใหม่ (เช่น ห้อง 11):");
-            if (!roomName || roomName.trim() === '') return;
-            const roomTypeInput = prompt("ระบุประเภทห้อง:\n1 = VIP\n2 = แอร์ (Standard)\n3 = พัดลม (Fan)", "2");
-            let roomType = 'standard'; if (roomTypeInput === '1') roomType = 'vip'; else if (roomTypeInput === '3') roomType = 'fan';
-            appData.rooms.push({ id: "r_" + new Date().getTime(), name: roomName.trim(), type: roomType, status: "available" }); saveDataToCloud();
-        });
-
-        document.getElementById('stayType').addEventListener('change', (e) => {
-            if(!currentSelectedRoomId) return; const room = appData.rooms.find(r => r.id === currentSelectedRoomId);
-            document.getElementById('customPrice').value = pricing[room.type][e.target.value];
-        });
-
-        function handleRoomClick(room) {
-            currentSelectedRoomId = room.id;
-            if (room.status === 'available') {
-                document.getElementById('modalRoomName').innerText = `${room.name}`; document.getElementById('modalRoomTypeDisplay').innerText = `ประเภท: ${pricing[room.type].label}`;
-                document.getElementById('customerInfo').value = ''; document.getElementById('stayType').value = 'overnight';
-                document.getElementById('customPrice').value = pricing[room.type]['overnight']; document.getElementById('checkInModal').style.display = 'flex';
-            } else { document.getElementById('checkoutRoomName').innerText = room.name; document.getElementById('checkOutModal').style.display = 'flex'; }
-        }
-
-        const closeModal = () => { document.getElementById('checkInModal').style.display = 'none'; document.getElementById('checkOutModal').style.display = 'none'; document.getElementById('detailsModal').style.display = 'none'; currentSelectedRoomId = null; };
-        document.getElementById('btnIconCloseCheckIn').addEventListener('click', closeModal); document.getElementById('btnIconCloseCheckOut').addEventListener('click', closeModal); document.getElementById('btnIconCloseDetails').addEventListener('click', closeModal);
-        window.onclick = function(event) { if (event.target.classList.contains('modal')) closeModal(); }
-
-        document.getElementById('btnConfirmCheckIn').addEventListener('click', () => {
-            const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId); const room = appData.rooms[roomIndex];
-            const sType = document.getElementById('stayType').value; const finalPrice = Number(document.getElementById('customPrice').value);
-            if (finalPrice < 0) { alert('ราคาไม่สามารถติดลบได้'); return; }
-            appData.rooms[roomIndex].status = 'occupied';
-            appData.transactions.push({ id: new Date().getTime(), type: 'income', amount: finalPrice, roomId: room.id, date: new Date().toISOString(), desc: `เช็คอิน ${room.name}`, customer: document.getElementById('customerInfo').value.trim() || "ลูกค้า Walk-in" });
-            saveDataToCloud(); closeModal();
-        });
-
-        document.getElementById('btnConfirmCheckOut').addEventListener('click', () => {
-            const roomIndex = appData.rooms.findIndex(r => r.id === currentSelectedRoomId);
-            appData.rooms[roomIndex].status = 'available'; saveDataToCloud(); closeModal();
-        });
-
-        document.getElementById('btnDeleteRoom').addEventListener('click', () => {
-            if (confirm('ยืนยันการลบห้องพักนี้อย่างถาวร?')) { appData.rooms = appData.rooms.filter(r => r.id !== currentSelectedRoomId); saveDataToCloud(); closeModal(); }
-        });
-
-        document.getElementById('btnClearAll').addEventListener('click', () => {
-            if (confirm('ยืนยันการรีเซ็ตสถานะทุกห้องให้ "ว่าง"?')) { appData.rooms.forEach(room => room.status = 'available'); saveDataToCloud(); }
-        });
-
-        document.getElementById('btnSaveExpense').addEventListener('click', () => {
-            const category = document.getElementById('expenseCategory').value; const amount = Number(document.getElementById('expenseAmount').value);
-            if (!category || category === 'add_new' || amount <= 0) return alert('โปรดกรอกข้อมูลให้ครบถ้วน');
-            appData.transactions.push({ id: new Date().getTime(), type: 'expense', amount: amount, date: new Date().toISOString(), desc: category });
-            document.getElementById('expenseCategory').value = ''; document.getElementById('expenseAmount').value = ''; saveDataToCloud();
-        });
-
-        function generateMonthOptions() {
-            const selector = document.getElementById('monthSelector'); selector.innerHTML = '';
-            const now = new Date(); const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-            for (let i = 0; i < 12; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); const opt = document.createElement('option'); opt.value = `${d.getFullYear()}-${d.getMonth()}`; opt.innerText = `${monthNames[d.getMonth()]} ${d.getFullYear() + 543}`; selector.appendChild(opt); }
-            selector.addEventListener('change', updateDashboard);
-        }
-
-        function openDetailsModal(type) {
-            const selector = document.getElementById('monthSelector'); if(!selector.value) return;
-            const [y, m] = selector.value.split('-').map(Number);
-            const filteredTx = appData.transactions.filter(tx => { const d = new Date(tx.date); return d.getMonth() === m && d.getFullYear() === y && tx.type === type; }).sort((a, b) => b.id - a.id);
-            const container = document.getElementById('detailsListContainer'); container.innerHTML = '';
-            document.getElementById('detailsTitle').innerHTML = type === 'income' ? `<i data-lucide="arrow-down-right" class="text-green"></i> ประวัติรายรับ` : `<i data-lucide="arrow-up-right" class="text-red"></i> ประวัติรายจ่าย`;
-            if(filteredTx.length === 0) { container.innerHTML = '<div style="text-align:center; padding: 24px; color: var(--text-sub);">ไม่พบรายการในเดือนนี้</div>'; } 
-            else { filteredTx.forEach(tx => { const d = new Date(tx.date); const timeStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} เวลา ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} น.`;
-                container.innerHTML += `<div class="detail-item"><div class="detail-info"><div class="detail-title">${tx.desc}</div>${tx.customer ? `<div style="font-size: 12px; color: var(--text-sub);">ผู้พัก: ${tx.customer}</div>` : ''}<div class="detail-time">${timeStr}</div></div><div style="display:flex; align-items:center;"><strong style="color: ${type==='income'?'var(--success)':'var(--danger)'}; font-size: 15px;">${type==='income'?'+':'-'}฿${tx.amount.toLocaleString()}</strong><button class="modal-close" style="margin-left: 8px;" onclick="window.deleteTx(${tx.id})"><i data-lucide="trash-2" width="14" height="14"></i></button></div></div>`; }); }
-            refreshIcons(); document.getElementById('detailsModal').style.display = 'flex';
-        }
-
-        window.deleteTx = function(txId) {
-            if (confirm('ยืนยันลบรายการนี้?')) { const idx = appData.transactions.findIndex(t => t.id === txId); if (idx > -1) { const tx = appData.transactions[idx]; if (tx.type === 'income' && tx.roomId) { const rIdx = appData.rooms.findIndex(r => r.id === tx.roomId); if (rIdx > -1) appData.rooms[rIdx].status = 'available'; } appData.transactions.splice(idx, 1); saveDataToCloud(); closeModal(); } }
-        };
-
-        document.getElementById('cardIncome').addEventListener('click', () => openDetailsModal('income')); document.getElementById('cardExpense').addEventListener('click', () => openDetailsModal('expense'));
-
-        function updateDashboard() {
-            const selector = document.getElementById('monthSelector'); if(!selector.value) return;
-            const [y, m] = selector.value.split('-').map(Number);
-            let inc = 0, exp = 0;
-            appData.transactions.forEach(tx => { const d = new Date(tx.date); if(d.getMonth() === m && d.getFullYear() === y) { if(tx.type === 'income') inc += tx.amount; else exp += tx.amount; } });
-            document.getElementById('totalIncome').innerText = '฿' + inc.toLocaleString(); document.getElementById('totalExpense').innerText = '฿' + exp.toLocaleString();
-            const net = inc - exp; const netEl = document.getElementById('netProfit');
-            if (net >= 0) { netEl.innerText = '฿' + net.toLocaleString(); netEl.style.color = 'var(--primary)'; } else { netEl.innerText = '-฿' + Math.abs(net).toLocaleString(); netEl.style.color = 'var(--danger)'; }
-        }
-    </script>
+  </div>
+  <dialog id="roomDialog" class="app-dialog"><form id="roomForm"><div class="dialog-heading"><h2 id="roomDialogTitle">เพิ่มห้องพัก</h2><button class="icon-button" type="button" data-close-dialog aria-label="ปิด"><i data-lucide="x"></i></button></div><input id="roomId" type="hidden"><label for="roomName">ชื่อห้อง</label><input id="roomName" required maxlength="60" placeholder="เช่น ห้อง 101"><label for="roomType">ประเภทห้อง</label><select id="roomType"><option value="vip">VIP</option><option value="standard">ห้องแอร์</option><option value="fan">ห้องพัดลม</option></select><div class="dialog-actions"><button id="btnDeleteRoom" class="button subtle-danger" type="button" hidden>ลบห้อง</button><button class="button primary" type="submit">บันทึกห้องพัก</button></div></form></dialog>
+  <dialog id="stayDialog" class="app-dialog"><div class="dialog-heading"><h2 id="stayDialogTitle">จัดการห้องพัก</h2><button class="icon-button" type="button" data-close-dialog aria-label="ปิด"><i data-lucide="x"></i></button></div><div id="stayAvailable"><form id="checkInForm"><label for="customerInfo">ชื่อหรือเบอร์โทรผู้พัก</label><input id="customerInfo" maxlength="100" placeholder="ลูกค้า Walk-in"><label for="stayType">ประเภทการพัก</label><select id="stayType"><option value="overnight">ค้างคืน</option><option value="short">ชั่วคราว</option></select><label for="customPrice">ราคาห้อง (บาท)</label><input id="customPrice" type="number" min="0" step="0.01" required><button class="button primary full" type="submit">บันทึกเข้าพัก</button></form></div><div id="stayOccupied" hidden><p class="muted">ห้องนี้มีผู้เข้าพักอยู่ เมื่อเช็คเอาท์สถานะจะกลับเป็นห้องว่าง</p><button id="btnConfirmCheckOut" class="button primary full" type="button">เช็คเอาท์และเคลียร์ห้อง</button></div><button id="btnEditRoom" class="text-button edit-room-button" type="button"><i data-lucide="pencil"></i> แก้ไขข้อมูลห้อง</button></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
